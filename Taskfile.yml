@@ -1,0 +1,51 @@
+version: '3'
+dotenv: ['.env']
+
+vars:
+  # shortcut: Go gates skip while the tree has no Go packages, remove the guard when internal/ lands its first package
+  HAS_GO:
+    sh: find cmd internal -name '*.go' 2>/dev/null | head -1
+
+tasks:
+  default:
+    cmds: [task --list]
+  test:
+    desc: Offline unit tests with the race detector (no inference)
+    cmds:
+      - '{{if .HAS_GO}}go test -race -count=1 ./...{{else}}echo "test: no Go packages yet"{{end}}'
+  lint:
+    desc: gofmt check on cmd and internal, go vet, golangci-lint
+    cmds:
+      - test -z "$(gofmt -l cmd internal 2>/dev/null)"
+      - '{{if .HAS_GO}}go vet ./...{{else}}echo "vet: no Go packages yet"{{end}}'
+      - '{{if .HAS_GO}}golangci-lint run{{else}}echo "golangci-lint: no Go packages yet"{{end}}'
+  check:
+    desc: Offline tests and lint; establishes nothing about models
+    cmds:
+      - task: test
+      - task: lint
+  ateam:doctor:
+    desc: ateam parity, hooks, and MCP budget check (no mutation)
+    cmds: [ateam doctor --check]
+  spec:check:
+    desc: Strict OpenSpec validation and hold parsing
+    cmds: [ateam state spec-check]
+  spec:queue:
+    desc: In-flight OpenSpec changes and their holds
+    cmds: [ateam state spec-queue]
+  test:spec:
+    desc: Test-to-spec citations on tests changed since the base
+    cmds: ['ateam test-spec --base "${TEST_SPEC_BASE:-origin/main}"']
+  mutate:check:
+    desc: Non-destructive mutation check via go test -overlay; -- -pkg ... -test ... -file ... -mutant ...
+    cmds: ['ateam mutate {{.CLI_ARGS}}']
+  merge:check:
+    desc: ateam review gate for PR <n>; -- <n>. Reads GitHub, so not in verify
+    cmds: ['ateam review gate {{.CLI_ARGS}}']
+  verify:
+    desc: Every local gate, cheapest first
+    cmds:
+      - task: ateam:doctor
+      - task: spec:check
+      - task: test:spec
+      - task: check
