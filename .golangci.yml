@@ -1,0 +1,9 @@
+version: "2"
+linters:
+  enable:
+    - revive
+    - errcheck
+    - govet
+    - staticcheck
+    - ineffassign
+    - unused

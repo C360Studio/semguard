@@ -1,0 +1,7 @@
+.ateam/
+.worktrees/
+.enjoy-logs/
+benchmarks/runs/
+.env
+results/
+bin/
