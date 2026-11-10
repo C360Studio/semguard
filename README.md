@@ -1,7 +1,7 @@
 # semguard
 
 A lab that measures which defenses stop an injected document from hijacking the LLM step of an OSINT pipeline, and at
-what cost. It is not a product. Its consumer is havocnow.
+what cost. It is not a product. Its consumer is a private OSINT pipeline.
 
 Input classifiers do not predict hijack well on the classes OSINT evidence carries (exfiltration links, social
 engineering, fragmented attacks). semguard measures the structural defenses instead (datamarked untrusted input,
