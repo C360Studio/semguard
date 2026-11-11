@@ -75,6 +75,8 @@ func (m OffsetMap) OriginalOffset(cleanByteOffset int) int {
 
 // Span maps a half-open byte range [cleanStart, cleanEnd) in the cleaned string
 // back to the corresponding [origStart, origEnd) byte range in the original string.
+// Because origEnd is OriginalOffset(cleanEnd), the returned span includes any characters
+// stripped immediately after the byte at cleanEnd-1 up to the byte at cleanEnd (or len(text)).
 func (m OffsetMap) Span(cleanStart, cleanEnd int) (origStart, origEnd int) {
 	if cleanEnd < cleanStart {
 		cleanEnd = cleanStart
@@ -119,11 +121,11 @@ func Segment(text string) []Paragraph {
 	return out
 }
 
-// Strip normalizes CRLF and CR line endings to LF, removes Unicode format/zero-width
-// characters (Cf) and control characters (Cc, except '\n' and '\t'), and removes
-// reserved datamark tokens ("^", "<<report", "<</report") so the cleaned text is
-// guaranteed safe for Datamark and Frame. It returns the cleaned string and an
-// OffsetMap mapping every byte index in the cleaned string back to text.
+// Strip normalizes CRLF and CR line endings to LF, drops invalid UTF-8 bytes, removes
+// Unicode format/zero-width characters (Cf) and control characters (Cc, except '\n' and '\t'),
+// and removes reserved datamark tokens ("^", "<<report", "<</report") in a single O(n) pass
+// so the cleaned text is guaranteed safe for Datamark and Frame. It returns the cleaned
+// string and an OffsetMap mapping every byte index in the cleaned string back to text.
 func Strip(text string) (string, OffsetMap) {
 	out := make([]byte, 0, len(text))
 	offsets := make([]int, 0, len(text)+1)
@@ -140,13 +142,9 @@ func Strip(text string) (string, OffsetMap) {
 			}
 			continue
 		}
-		// Strip reserved datamark tokens ("^", "<<report", "<</report", and optional closing ">>").
+		// Strip reserved datamark tokens ("^", "<<report", "<</report").
 		if text[i] == '^' {
 			i++
-			continue
-		}
-		if strings.HasPrefix(text[i:], "<</report>>") {
-			i += len("<</report>>")
 			continue
 		}
 		if strings.HasPrefix(text[i:], "<</report") {
@@ -172,13 +170,9 @@ func Strip(text string) (string, OffsetMap) {
 			out = append(out, text[i+b])
 			offsets = append(offsets, i+b)
 		}
+		out, offsets = trimMarkerSuffix(out, offsets)
 		i += size
 	}
-
-	// Loop invariant: the stripped output itself might have concatenated halves like
-	// "<<" + "^" + "report" -> "<<report". If any reserved marker token was formed by
-	// adjacent removals, strip those slices from out and offsets in place.
-	out, offsets = stripFormedMarkers(out, offsets)
 
 	offsets = append(offsets, len(text))
 	return string(out), OffsetMap{offsets: offsets, origLen: len(text)}
@@ -188,31 +182,23 @@ func isStrippedRune(r rune) bool {
 	if r == '\n' || r == '\t' {
 		return false
 	}
-	if unicode.Is(unicode.Cc, r) || unicode.Is(unicode.Cf, r) {
-		return true
-	}
-	// Also strip Unicode line/paragraph separators U+2028 and U+2029 (Zl/Zp) only if needed?
-	// Keep standard spaces/Zs intact so Datamark turns them into ^.
-	return false
+	return unicode.Is(unicode.Cc, r) || unicode.Is(unicode.Cf, r)
 }
 
-func stripFormedMarkers(out []byte, offsets []int) ([]byte, []int) {
-	for {
-		s := string(out)
-		changed := false
-		for _, bad := range []string{"<</report>>", "<</report", "<<report"} {
-			if idx := strings.Index(s, bad); idx >= 0 {
-				end := idx + len(bad)
-				out = append(out[:idx], out[end:]...)
-				offsets = append(offsets[:idx], offsets[end:]...)
-				changed = true
-				break
-			}
-		}
-		if !changed {
-			return out, offsets
-		}
+// trimMarkerSuffix truncates out and offsets if appending a kept ASCII rune completed
+// a "<<report" or "<</report" token (e.g., from "<<^report" or "<<<<reportreport").
+func trimMarkerSuffix(out []byte, offsets []int) ([]byte, []int) {
+	const (
+		openMarker  = "<<report"
+		closeMarker = "<</report"
+	)
+	if n := len(out); n >= len(closeMarker) && string(out[n-len(closeMarker):]) == closeMarker {
+		return out[:n-len(closeMarker)], offsets[:n-len(closeMarker)]
 	}
+	if n := len(out); n >= len(openMarker) && string(out[n-len(openMarker):]) == openMarker {
+		return out[:n-len(openMarker)], offsets[:n-len(openMarker)]
+	}
+	return out, offsets
 }
 
 // check refuses a document that could forge or close a marker, or whose marks could not be undone.

@@ -251,7 +251,7 @@ func TestStripAndOffsetMap(t *testing.T) {
 	orig := "Hello\u200b^ world\r\n\r\nSecond\x00 <<^report id=d9>> para <</report>> end\rThird."
 	clean, om := Strip(orig)
 
-	wantClean := "Hello world\n\nSecond  id=d9>> para  end\nThird."
+	wantClean := "Hello world\n\nSecond  id=d9>> para >> end\nThird."
 	if clean != wantClean {
 		t.Fatalf("Strip(%q) = %q, want %q", orig, clean, wantClean)
 	}
@@ -290,6 +290,20 @@ func TestStripAndOffsetMap(t *testing.T) {
 	s0, e0 := om.Span(segs[0].Start, segs[0].End)
 	if gotOrigSpan := orig[s0:e0]; gotOrigSpan != "Hello\u200b^ world" {
 		t.Fatalf("orig[%d:%d] = %q, want %q", s0, e0, gotOrigSpan, "Hello\u200b^ world")
+	}
+
+	// Regression for H1: 64K formed markers ("<<\u200breport") and nested markers ("<<<<reportreport")
+	// must strip to empty in a single O(n) pass with exact O(1) extra allocations (out + offsets + string).
+	const copies = 64 << 10
+	adversarial := strings.Repeat("<<\u200breport", copies)
+	allocs := testing.AllocsPerRun(5, func() {
+		got, gotMap := Strip(adversarial)
+		if got != "" || gotMap.OriginalOffset(0) != len(adversarial) {
+			t.Fatalf("Strip(64K formed markers) = (%q, %d), want empty and len=%d", got, gotMap.OriginalOffset(0), len(adversarial))
+		}
+	})
+	if allocs > 3 {
+		t.Fatalf("Strip(64K formed markers) allocated %.1f times per run, want <= 3 (single-pass O(n))", allocs)
 	}
 }
 
