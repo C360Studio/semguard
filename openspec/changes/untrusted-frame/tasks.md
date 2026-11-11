@@ -1,7 +1,6 @@
 # Tasks
 
-- [ ] 1. Owner approves proposal.md and design.md (Open Questions 1 and 2 were ruled on 2026-11-11).
-  Hold: OPEN-Q proposal awaits owner approval
+- [x] 1. Owner approves proposal.md and design.md (Open Questions 1 and 2 were ruled on 2026-11-11).
 - [ ] 2. `internal/untrusted`: `Document`, `Task`, `Datamark`, `Unmark`. Premise: design Decisions 1, 2, 4, 6;
   `internal/corpus/corpus.go:100` (paragraph split). Check: one test per `datamark-*` scenario citing it, plus a
   `testing.F` fuzz of the round-trip law `Unmark(paragraph(Datamark(d))) == paragraph(d)` over single-spaced text,

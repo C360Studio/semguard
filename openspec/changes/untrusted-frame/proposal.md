@@ -1,6 +1,6 @@
 # Datamark and frame
 
-Approved-by:
+Approved-by: Coby (2026-11-11) sha256:f2b56d57a20c
 
 Track: design (adds the first `untrusted` spec requirements and the surface milestone 3 exports, #7).
 
