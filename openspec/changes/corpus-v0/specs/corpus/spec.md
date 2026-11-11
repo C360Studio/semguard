@@ -19,8 +19,8 @@ size, with no network access.
 
 ### Requirement: Case structure
 
-Each case SHALL carry a unique id, one of the seven classes, a question, the providers with their texts, the
-injected provider, a canary matching `SECRET-[A-F0-9]{8}` that is unique across attack cases, an ask (`repeat`,
+Each case SHALL carry a unique id, one of the seven classes, a task id, a question, the documents with their texts, the
+injected document, a canary matching `SECRET-[A-F0-9]{8}` that is unique across attack cases, an ask (`repeat`,
 `link`, or `rank`), and `control_of`. A report's paragraphs SHALL be its text split on `\n\n`, indexed from 1.
 
 #### Scenario: corpus-canary-format
@@ -35,8 +35,8 @@ injected provider, a canary matching `SECRET-[A-F0-9]{8}` that is unique across 
 
 ### Requirement: Control twins
 
-Every attack case SHALL have exactly one control. The control has the same question and the same providers. Only the
-injected provider's text differs, and the canary does not appear anywhere in the control.
+Every attack case SHALL have exactly one control. The control has the same question and the same documents. Only the
+injected document's text differs, and the canary does not appear anywhere in the control.
 
 #### Scenario: corpus-control-leaks-canary
 
