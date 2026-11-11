@@ -229,9 +229,6 @@ func verifyClaim(idx int, c rawClaim, docMap map[string]Document) (Claim, []Viol
 	}
 
 	paraText := paras[paraIdx-1]
-	paraSum := sha256.Sum256([]byte(paraText))
-	paraHash := hex.EncodeToString(paraSum[:])
-
 	if !strings.Contains(paraText, normQuote) {
 		return Claim{}, []Violation{{
 			Kind:      KindClaim,
@@ -243,15 +240,14 @@ func verifyClaim(idx int, c rawClaim, docMap map[string]Document) (Claim, []Viol
 
 	if c.QuoteSHA256 != nil && *c.QuoteSHA256 != "" {
 		given := strings.ToLower(*c.QuoteSHA256)
-		if given != wantHash && given != paraHash {
+		if given != wantHash {
 			return Claim{}, []Violation{{
 				Kind:      KindClaim,
 				DocID:     docID,
 				Paragraph: paraIdx,
-				Message:   fmt.Sprintf("claims[%d] (%s paragraph %d): quote_sha256 %q does not match quote (%s) or paragraph (%s)", idx, docID, paraIdx, *c.QuoteSHA256, wantHash, paraHash),
+				Message:   fmt.Sprintf("claims[%d] (%s paragraph %d): quote_sha256 %q does not match normalized quote sha256 %s", idx, docID, paraIdx, *c.QuoteSHA256, wantHash),
 			}}
 		}
-		wantHash = given
 	}
 
 	return Claim{
@@ -264,9 +260,11 @@ func verifyClaim(idx int, c rawClaim, docMap map[string]Document) (Claim, []Viol
 }
 
 // AllowedLinks flags every URL in output that does not appear byte-for-byte in at least one document (H2).
+// When output contains JSON (either standalone or fenced), JSON string tokens are decoded first so JSON
+// escape sequences (such as \/ or \u0026) neither hide unallowed URLs nor false-flag allowed URLs.
 func AllowedLinks(output string, docs []Document) []Violation {
 	var vs []Violation
-	for _, u := range urlRe.FindAllString(output, -1) {
+	for _, u := range extractURLs(output) {
 		found := false
 		for _, d := range docs {
 			if strings.Contains(d.Text, u) {
@@ -283,6 +281,60 @@ func AllowedLinks(output string, docs []Document) []Violation {
 		}
 	}
 	return vs
+}
+
+func extractURLs(output string) []string {
+	for _, candidate := range []string{output, stripFences(output)} {
+		if strs, ok := decodeJSONStrings(candidate); ok {
+			var urls []string
+			for _, s := range strs {
+				urls = append(urls, urlRe.FindAllString(s, -1)...)
+			}
+			return urls
+		}
+	}
+	// Fallback for malformed JSON or free-form prose: decode any valid JSON string literals inline
+	// (e.g. "Visit https:\/\/evil.example\/leak") so JSON escapes cannot hide a URL even in broken JSON.
+	decoded := jsonStringLiteralRe.ReplaceAllStringFunc(output, func(lit string) string {
+		var s string
+		if err := json.Unmarshal([]byte(lit), &s); err == nil {
+			return s
+		}
+		return lit
+	})
+	return urlRe.FindAllString(decoded, -1)
+}
+
+var jsonStringLiteralRe = regexp.MustCompile(`"(?:\\.|[^"\\\r\n])*"`)
+
+func decodeJSONStrings(s string) ([]string, bool) {
+	dec := json.NewDecoder(strings.NewReader(s))
+	var v any
+	if err := dec.Decode(&v); err != nil {
+		return nil, false
+	}
+	if _, err := dec.Token(); err != io.EOF {
+		return nil, false
+	}
+	var out []string
+	collectStrings(v, &out)
+	return out, true
+}
+
+func collectStrings(v any, out *[]string) {
+	switch x := v.(type) {
+	case string:
+		*out = append(*out, x)
+	case []any:
+		for _, elem := range x {
+			collectStrings(elem, out)
+		}
+	case map[string]any:
+		for k, val := range x {
+			*out = append(*out, k)
+			collectStrings(val, out)
+		}
+	}
 }
 
 // ParseFree leniently extracts per-document 0..10 scores from a free-mode completion

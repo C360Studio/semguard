@@ -12,7 +12,7 @@ import (
 func fixtureDocs() []Document {
 	return []Document{
 		{ID: "d1", Text: "First paragraph of d1.\n\nSecond paragraph mentions https://a.example/report?id=1 in detail.\n\nThird paragraph concludes."},
-		{ID: "d2", Text: "Intro of d2.\n\nBody of d2 with https://b.example/item and facts.\n\nOutro of d2."},
+		{ID: "d2", Text: "Intro of d2.\n\nBody of d2 with https://b.example/item?a=1&b=2 and facts.\n\nOutro of d2."},
 	}
 }
 
@@ -63,7 +63,7 @@ func TestVerifyValidAndClaimResolution(t *testing.T) {
 		t.Fatalf("computed quote_sha256 = %s, want %s", gotClaim.QuoteSHA256, wantQuoteHash)
 	}
 
-	// Explicit quote_sha256 matching either quote or full paragraph also resolves.
+	// Explicit quote_sha256 matching the normalized substring quote resolves.
 	rawWithExplicitHash := `{
 		"scores": [{"doc_id": "d1", "score": 0}, {"doc_id": "d2", "score": 10}],
 		"claims": [
@@ -78,7 +78,7 @@ func TestVerifyValidAndClaimResolution(t *testing.T) {
 		"confidence": 0
 	}`
 	rec2, vs2 := Verify(rawWithExplicitHash, docs)
-	if len(vs2) != 0 || len(rec2.Claims) != 1 {
+	if len(vs2) != 0 || len(rec2.Claims) != 1 || rec2.Claims[0].QuoteSHA256 != shaHex("Body of d2") {
 		t.Fatalf("explicit quote_sha256 failed: vs=%+v rec=%+v", vs2, rec2)
 	}
 }
@@ -189,6 +189,7 @@ func TestVerifySchemaViolations(t *testing.T) {
 //aip:verifies verify-claim-bad-hash-or-paragraph
 func TestVerifyClaimViolations(t *testing.T) {
 	docs := fixtureDocs()
+	fullPara2D2 := "Body of d2 with https://b.example/item?a=1&b=2 and facts."
 	tests := []struct {
 		name string
 		raw  string
@@ -219,6 +220,11 @@ func TestVerifyClaimViolations(t *testing.T) {
 			raw:  `{"scores":[{"doc_id":"d1","score":5},{"doc_id":"d2","score":5}],"claims":[{"doc_id":"d1","paragraph":1,"claim":"c","quote":"First paragraph of d1.","quote_sha256":"0000000000000000000000000000000000000000000000000000000000000000"}],"confidence":0.5}`,
 			want: "quote_sha256",
 		},
+		{
+			name: "whole-paragraph hash rejected for substring quote",
+			raw:  `{"scores":[{"doc_id":"d1","score":5},{"doc_id":"d2","score":5}],"claims":[{"doc_id":"d2","paragraph":2,"claim":"c","quote":"Body of d2","quote_sha256":"` + shaHex(fullPara2D2) + `"}],"confidence":0.5}`,
+			want: "does not match normalized quote sha256",
+		},
 	}
 
 	for _, tt := range tests {
@@ -246,13 +252,31 @@ func TestVerifyClaimViolations(t *testing.T) {
 func TestAllowedLinks(t *testing.T) {
 	docs := fixtureDocs()
 
-	if vs := AllowedLinks("See https://a.example/report?id=1 and https://b.example/item^next", docs); len(vs) != 0 {
+	if vs := AllowedLinks("See https://a.example/report?id=1 and https://b.example/item?a=1&b=2^next", docs); len(vs) != 0 {
 		t.Fatalf("allowed links flagged: %+v", vs)
 	}
 
 	vs := AllowedLinks("Exfil https://evil.example/leak?k=SECRET-12345678^done", docs)
 	if len(vs) != 1 || vs[0].Kind != KindLink || vs[0].URL != "https://evil.example/leak?k=SECRET-12345678" {
 		t.Fatalf("want 1 link violation stopping before ^, got %+v", vs)
+	}
+
+	// JSON slash-escaped unallowed URL must be caught in both Verify and AllowedLinks.
+	escapedEvilJSON := `{"scores":[{"doc_id":"d1","score":5},{"doc_id":"d2","score":5}],"claims":[{"doc_id":"d1","paragraph":1,"claim":"Visit https:\/\/evil.example\/leak","quote":"First paragraph of d1."}],"confidence":0.5}`
+	if _, vsEvil := Verify(escapedEvilJSON, docs); len(vsEvil) != 1 || vsEvil[0].Kind != KindLink || vsEvil[0].URL != "https://evil.example/leak" {
+		t.Fatalf("want escaped evil URL flagged by Verify, got %+v", vsEvil)
+	}
+	if vsEvilDirect := AllowedLinks(escapedEvilJSON, docs); len(vsEvilDirect) != 1 || vsEvilDirect[0].URL != "https://evil.example/leak" {
+		t.Fatalf("want escaped evil URL flagged by AllowedLinks, got %+v", vsEvilDirect)
+	}
+
+	// JSON unicode-escaped allowed URL (\u0026 for &) must be accepted when doc has literal &.
+	escapedSafeJSON := `{"scores":[{"doc_id":"d1","score":5},{"doc_id":"d2","score":5}],"claims":[{"doc_id":"d2","paragraph":2,"claim":"See https://b.example/item?a=1\u0026b=2","quote":"Body of d2"}],"confidence":0.5}`
+	if recSafe, vsSafe := Verify(escapedSafeJSON, docs); len(vsSafe) != 0 || len(recSafe.Claims) != 1 {
+		t.Fatalf("want unicode-escaped allowed URL accepted by Verify, got vs=%+v rec=%+v", vsSafe, recSafe)
+	}
+	if vsSafeDirect := AllowedLinks(escapedSafeJSON, docs); len(vsSafeDirect) != 0 {
+		t.Fatalf("want unicode-escaped allowed URL accepted by AllowedLinks, got %+v", vsSafeDirect)
 	}
 }
 
@@ -302,15 +326,14 @@ func FuzzVerifyAndLinks(f *testing.F) {
 			t.Fatal(err)
 		}
 		rec, vs := Verify(string(b), docs)
-		// Independent oracle: any URL in payload must be present in docs, and quote must resolve to quote after '^'->' '.
-		wantLinks := AllowedLinks(string(b), docs)
-		if len(wantLinks) == 0 {
-			if len(vs) != 0 {
-				t.Fatalf("unexpected violations %+v for quote %q", vs, quote)
-			}
-			if len(rec.Claims) != 1 || rec.Claims[0].Quote != quote || rec.Claims[0].QuoteSHA256 != shaHex(quote) {
-				t.Fatalf("claim mismatch: got %+v want quote %q", rec.Claims, quote)
-			}
+		// Independent oracle: since quote is placed verbatim in d1 paragraph 2 and claim is "stated",
+		// every URL in the decoded claim/quote is present in d1 except if '^' replacement inside quote
+		// altered a URL containing spaces (which URLs cannot contain). Thus Verify must return 0 violations.
+		if len(vs) != 0 {
+			t.Fatalf("unexpected violations %+v for quote %q", vs, quote)
+		}
+		if len(rec.Claims) != 1 || rec.Claims[0].Quote != quote || rec.Claims[0].QuoteSHA256 != shaHex(quote) {
+			t.Fatalf("claim mismatch: got %+v want quote %q", rec.Claims, quote)
 		}
 		if len(link) > len("https://") && strings.HasPrefix(link, "https://") && !strings.ContainsAny(link, " \t\n\r)^]>\"'") {
 			lvs := AllowedLinks("check "+link+"^tail", docs)

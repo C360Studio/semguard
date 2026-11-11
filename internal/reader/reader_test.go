@@ -10,6 +10,34 @@ import (
 	"testing"
 )
 
+func checkStrictObjectSchema(t *testing.T, path string, node map[string]any) {
+	t.Helper()
+	if node["type"] == "object" {
+		if ap, ok := node["additionalProperties"].(bool); !ok || ap {
+			t.Fatalf("%s: strict object must set additionalProperties: false, got %v", path, node["additionalProperties"])
+		}
+		props, _ := node["properties"].(map[string]any)
+		reqRaw, _ := node["required"].([]any)
+		reqSet := make(map[string]bool, len(reqRaw))
+		for _, r := range reqRaw {
+			if s, ok := r.(string); ok {
+				reqSet[s] = true
+			}
+		}
+		for k, v := range props {
+			if !reqSet[k] {
+				t.Fatalf("%s: property %q is not in required %v (invalid for OpenAI strict Structured Outputs)", path, k, reqRaw)
+			}
+			if sub, ok := v.(map[string]any); ok {
+				checkStrictObjectSchema(t, path+"."+k, sub)
+			}
+		}
+	}
+	if items, ok := node["items"].(map[string]any); ok {
+		checkStrictObjectSchema(t, path+"[]", items)
+	}
+}
+
 //aip:verifies reader-complete-free
 func TestCompleteFreeMode(t *testing.T) {
 	var gotBody map[string]any
@@ -96,6 +124,11 @@ func TestCompleteSchemaModeAndLoadSchema(t *testing.T) {
 	if !ok || js["name"] != "score-compare" || js["strict"] != true {
 		t.Fatalf("json_schema = %+v", rf["json_schema"])
 	}
+	transmittedSchema, ok := js["schema"].(map[string]any)
+	if !ok {
+		t.Fatalf("transmitted schema is not an object: %+v", js["schema"])
+	}
+	checkStrictObjectSchema(t, "score-compare", transmittedSchema)
 }
 
 //aip:verifies reader-refusal

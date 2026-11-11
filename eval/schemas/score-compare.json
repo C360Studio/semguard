@@ -47,10 +47,6 @@
           "quote": {
             "type": "string",
             "minLength": 1
-          },
-          "quote_sha256": {
-            "type": "string",
-            "pattern": "^[a-f0-9]{64}$"
           }
         }
       }
