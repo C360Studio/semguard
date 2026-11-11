@@ -1,6 +1,6 @@
 # Segment, strip, and export the module API
 
-Approved-by:
+Approved-by: Coby (2026-11-11) sha256:c05d48ae2270
 
 Track: design (adds `Segment` and `Strip` requirements to `openspec/specs/untrusted/spec.md` and promotes `untrusted` and `verify` to exported module packages).
 

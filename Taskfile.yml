@@ -17,9 +17,9 @@ tasks:
     cmds:
       - go test -race -count=1 ./...
   lint:
-    desc: gofmt check on cmd and internal, go vet, golangci-lint
+    desc: gofmt check on cmd, internal, untrusted, and verify, go vet, golangci-lint
     cmds:
-      - test -z "$(gofmt -l cmd internal 2>/dev/null)"
+      - test -z "$(gofmt -l cmd internal untrusted verify 2>/dev/null)"
       - go vet ./...
       - golangci-lint run
   check:

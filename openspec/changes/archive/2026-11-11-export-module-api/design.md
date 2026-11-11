@@ -19,25 +19,25 @@ Goals: promote `untrusted` and `verify` to clean top-level module packages, add 
 1. **What `Strip(text) (string, OffsetMap)` removes or normalizes.**
    - **(a) Strip invisible/control characters (C0/C1 controls except `\n` and `\t`, plus Unicode format/zero-width runes like `U+200B..U+200F`, `U+202A..U+202E`, `U+2060..U+206F`, `U+FEFF`), normalize `\r\n` and `\r` to `\n`, and strip the reserved datamark tokens (`^`, `<<report`, `<</report`) so any stripped text is guaranteed to pass `Datamark`/`Frame` marker checks.**
    - **(b) Strip only invisible/zero-width Unicode format characters and control characters (leaving `^`, `<<report`, and `<</report` to fail `Datamark` with an error).**
-   - *Trade-off:* Under (a), an adopter who runs `Strip` before `Frame`/`Datamark` never hits a runtime marker-spoofing error on real-world documents containing a literal `^` (e.g. math/markdown) or `<<report`, fulfilling #5 Decision 4's deferral to #7. Under (b), `Strip` only removes invisible Unicode/control characters and documents with `^` still error in `Datamark`. **Proposed: (a); see Open Question 1.**
+   - *Trade-off:* Under (a), an adopter who runs `Strip` before `Frame`/`Datamark` never hits a runtime marker-spoofing error on real-world documents containing a literal `^` (e.g. math/markdown) or `<<report`, fulfilling #5 Decision 4's deferral to #7. Under (b), `Strip` only removes invisible Unicode/control characters and documents with `^` still error in `Datamark`. **Choose (a)** (Coby, 2026-11-11).
    - *Seam:* `Strip` returns `(cleaned string, OffsetMap)` where `OffsetMap.OriginalOffset(cleanIdx int) int` maps any byte offset `0 <= cleanIdx <= len(cleaned)` back to its exact source byte offset in `text` (`cleanText[i]` originated at `text[m.OriginalOffset(i)]`).
 
 2. **`Paragraph` and `OffsetMap` types in `untrusted`.**
    - **(a) `Paragraph{Index int, Text string, Start int, End int}` (1-based `Index`, byte slice `text[Start:End] == Text`, splitting on `\n\n` exactly like `corpus.Paragraphs`) and `OffsetMap` with `OriginalOffset(cleanOffset int) int` and `Span(cleanStart, cleanEnd int) (origStart, origEnd int)`.**
    - **(b) `Paragraph` with only `{Index int, Text string}` and `OffsetMap` as a raw `[]int` slice.**
-   - *Trade-off:* Option (a) gives adopters both 1-based paragraph index and byte spans (`Start`, `End`) that compose directly with `OffsetMap.Span(p.Start, p.End)` to locate a paragraph or verified quote in the original unstripped document. **Proposed: (a); see Open Question 2.**
+   - *Trade-off:* Option (a) gives adopters both 1-based paragraph index and byte spans (`Start`, `End`) that compose directly with `OffsetMap.Span(p.Start, p.End)` to locate a paragraph or verified quote in the original unstripped document. **Choose (a)** (Coby, 2026-11-11).
    - *Seam:* `Segment(text)` always returns at least 1 paragraph (matching `strings.Split(text, "\n\n")`), and for every `p` in `Segment(text)`, `p.Index == i+1` and `text[p.Start:p.End] == p.Text`.
 
 3. **`Block` return type of `Datamark` and package move layout.**
    - **(a) Define `type Block = string` in `untrusted` (`Datamark(docs []Document) (Block, error)`), move `internal/untrusted` → `untrusted` and `internal/verify` → `verify` directly (updating `cmd/detonate` and `internal/report` imports, with no duplicate `internal/` wrappers).**
    - **(b) Define `type Block string` (distinct named string type requiring `string(b)` casts) and keep `internal/untrusted` / `internal/verify` as type-forwarding shims.**
-   - *Trade-off:* `type Block = string` satisfies `untrusted.Block` in issue #7 without breaking existing string callers or requiring casts, and moving the packages directly avoids maintaining two copies or wrapper shims in a single-module repo. **Proposed: (a); see Open Question 3.**
+   - *Trade-off:* `type Block = string` satisfies `untrusted.Block` in issue #7 without breaking existing string callers or requiring casts, and moving the packages directly avoids maintaining two copies or wrapper shims in a single-module repo. **Choose (a)** (Coby, 2026-11-11).
    - *Seam:* External consumers import `github.com/c360studio/semguard/untrusted` and `github.com/c360studio/semguard/verify`.
 
 4. **When to tag the module release.**
    - **(a) Ship the exported packages in this PR without pushing a git tag yet, or tag `v0.1.0` after merge once Coby confirms the version.**
    - **(b) Push a `v0.1.0` tag during the PR before merge.**
-   - *Trade-off:* Tagging a branch commit before squash-merge points the tag at an unmerged branch SHA rather than `main`. **Proposed: (a); see Open Question 4.**
+   - *Trade-off:* Tagging a branch commit before squash-merge points the tag at an unmerged branch SHA rather than `main`. **Choose (a)** (Coby, 2026-11-11).
    - *Seam:* Once merged to `main`, `git tag v0.1.0` on the `main` merge commit publishes the module version.
 
 ## Risks / Trade-offs
@@ -51,6 +51,6 @@ Move `internal/untrusted` → `untrusted` and `internal/verify` → `verify` via
 
 ## Open Questions
 
-1. **(owner)** Confirm Decision 1(a): `Strip` normalizes `\r\n`/`\r` → `\n`, removes C0/C1 control characters (except `\n`, `\t`) and Unicode format/zero-width characters (`Cf`), and removes reserved datamark tokens (`^`, `<<report`, `<</report`) so `Strip` output is guaranteed safe for `Datamark`/`Frame`?
-2. **(owner)** Confirm Decision 2(a): `Paragraph{Index, Text, Start, End}` (1-based `Index`, byte offsets `Start`/`End` on `\n\n` split) and `OffsetMap` with `OriginalOffset(int) int` and `Span(start, end int) (int, int)`?
-3. **(owner)** Confirm Decision 3(a) & 4(a): `type Block = string` with `Datamark(docs) (Block, error)`, direct move to top-level `untrusted/` and `verify/` (no `internal/` shims), and hold off on pushing a git tag until after the PR squash-merges to `main`?
+1. Resolved (Coby, 2026-11-11): `Strip` normalizes `\r\n`/`\r` → `\n`, removes C0/C1 control characters (except `\n`, `\t`) and Unicode format/zero-width characters (`Cf`), and removes reserved datamark tokens (`^`, `<<report`, `<</report`) so `Strip` output is guaranteed safe for `Datamark`/`Frame` (Decision 1).
+2. Resolved (Coby, 2026-11-11): `Paragraph{Index, Text, Start, End}` (1-based `Index`, byte offsets `Start`/`End` on `\n\n` split) and `OffsetMap` with `OriginalOffset(int) int` and `Span(start, end int) (int, int)` (Decision 2).
+3. Resolved (Coby, 2026-11-11): `type Block = string` with `Datamark(docs) (Block, error)`, direct move to top-level `untrusted/` and `verify/` (no `internal/` shims), and tag after the PR squash-merges to `main` (Decisions 3 & 4).
