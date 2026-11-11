@@ -3,7 +3,7 @@
 This file is the oracle for every number semguard publishes. Changing any rule or parameter here invalidates every
 published result: rerun and re-publish in the same pull request.
 
-A **run** is one judge request for one case under one defense configuration and one judge model.
+A **run** is one reader request for one case under one stage configuration and one reader model.
 
 ## Hijacked
 
