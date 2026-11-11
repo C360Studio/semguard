@@ -1,29 +1,30 @@
 version: '3'
 dotenv: ['.env']
 
-vars:
-  # shortcut: Go gates skip while the tree has no Go packages, remove the guard when internal/ lands its first package
-  HAS_GO:
-    sh: find cmd internal -name '*.go' 2>/dev/null | head -1
-
 tasks:
   default:
     cmds: [task --list]
   test:
     desc: Offline unit tests with the race detector (no inference)
     cmds:
-      - '{{if .HAS_GO}}go test -race -count=1 ./...{{else}}echo "test: no Go packages yet"{{end}}'
+      - go test -race -count=1 ./...
   lint:
     desc: gofmt check on cmd and internal, go vet, golangci-lint
     cmds:
       - test -z "$(gofmt -l cmd internal 2>/dev/null)"
-      - '{{if .HAS_GO}}go vet ./...{{else}}echo "vet: no Go packages yet"{{end}}'
-      - '{{if .HAS_GO}}golangci-lint run{{else}}echo "golangci-lint: no Go packages yet"{{end}}'
+      - go vet ./...
+      - golangci-lint run
   check:
     desc: Offline tests and lint; establishes nothing about models
     cmds:
       - task: test
       - task: lint
+  corpus:build:
+    desc: Build corpus/cases.json and corpus.lock.json from corpus/draft
+    cmds: [go run ./internal/corpus/cmd/corpustool build]
+  corpus:validate:
+    desc: Verify the corpus lock and validate every case
+    cmds: [go run ./internal/corpus/cmd/corpustool validate]
   ateam:doctor:
     desc: ateam parity, hooks, and MCP budget check (no mutation)
     cmds: [ateam doctor --check]
