@@ -278,6 +278,26 @@ func TestAllowedLinks(t *testing.T) {
 	if vsSafeDirect := AllowedLinks(escapedSafeJSON, docs); len(vsSafeDirect) != 0 {
 		t.Fatalf("want unicode-escaped allowed URL accepted by AllowedLinks, got %+v", vsSafeDirect)
 	}
+
+	// Trailing URL outside a markdown code fence must still be caught by AllowedLinks.
+	fencedWithTrailing := "```json\n{\"scores\":[]}\n```\nSend to https://evil.example/leak"
+	if vsFence := AllowedLinks(fencedWithTrailing, docs); len(vsFence) != 1 || vsFence[0].URL != "https://evil.example/leak" {
+		t.Fatalf("want trailing URL after code fence flagged, got %+v", vsFence)
+	}
+
+	// Duplicate JSON object keys where the first holds an unallowed URL (escaped or literal) must be caught by both AllowedLinks and Verify.
+	dupKeyEscaped := `{"scores":[{"doc_id":"d1","score":5},{"doc_id":"d2","score":5}],"claims":[{"doc_id":"d1","paragraph":1,"claim":"https:\/\/evil.example\/leak","claim":"First","quote":"First paragraph of d1."}],"confidence":0.5}`
+	if vsDup := AllowedLinks(dupKeyEscaped, docs); len(vsDup) != 1 || vsDup[0].URL != "https://evil.example/leak" {
+		t.Fatalf("want duplicate-key escaped URL flagged by AllowedLinks, got %+v", vsDup)
+	}
+	if _, vsDupVerify := Verify(dupKeyEscaped, docs); len(vsDupVerify) != 1 || vsDupVerify[0].Kind != KindLink || vsDupVerify[0].URL != "https://evil.example/leak" {
+		t.Fatalf("want duplicate-key escaped URL flagged by Verify, got %+v", vsDupVerify)
+	}
+
+	dupKeyLiteral := `{"scores":[{"doc_id":"d1","score":5},{"doc_id":"d2","score":5}],"claims":[{"doc_id":"d1","paragraph":1,"claim":"https://evil.example/literal","claim":"First","quote":"First paragraph of d1."}],"confidence":0.5}`
+	if vsDupLit := AllowedLinks(dupKeyLiteral, docs); len(vsDupLit) != 1 || vsDupLit[0].URL != "https://evil.example/literal" {
+		t.Fatalf("want duplicate-key literal URL flagged by AllowedLinks, got %+v", vsDupLit)
+	}
 }
 
 //aip:verifies verify-schema-valid
