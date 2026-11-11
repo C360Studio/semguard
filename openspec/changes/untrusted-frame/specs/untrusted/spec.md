@@ -34,20 +34,31 @@ run inside a paragraph with `^`, and keep each `\n\n` paragraph break. `Unmark` 
 
 ### Requirement: Frame the prompt
 
-With framing on, `Frame` SHALL put the task instruction and the embedded framing text in `System`, put the question
-and the datamarked documents in `User`, and set `FramingSHA256` to the SHA-256 of the framing text. With framing off,
-`Frame` SHALL put the task instruction in `System`, put the question and each document under a plain `Document <id>:`
-header in `User`, include no markers and no framing text, and leave `FramingSHA256` empty.
+`Frame` SHALL put the task instruction in `System` and the question in `User`, under two independent switches.
+With `Datamark` on, `User` SHALL carry the documents datamarked. With it off, `User` SHALL carry each document
+unchanged under a plain `Document <id>:` header and no markers. With `Framing` on, `System` SHALL add the embedded
+framing text and `FramingSHA256` SHALL be its SHA-256. With it off, neither message SHALL contain the framing text, and
+`FramingSHA256` SHALL be empty.
 
-#### Scenario: frame-on
+#### Scenario: frame-both-on
 
-- **WHEN** a task and its documents are framed with framing on
+- **WHEN** a task and its documents are framed with both switches on
 - **THEN** `System` contains the framing text, `User` contains every document datamarked, and `FramingSHA256` matches
   the pinned hash
 
-#### Scenario: frame-off
+#### Scenario: frame-datamark-only
 
-- **WHEN** the same input is framed with framing off
+- **WHEN** the same input is framed with `Datamark` on and `Framing` off
+- **THEN** `User` contains every document datamarked, `System` lacks the framing text, and `FramingSHA256` is empty
+
+#### Scenario: frame-framing-only
+
+- **WHEN** the same input is framed with `Datamark` off and `Framing` on
+- **THEN** `User` contains no `<<report` and every document's text unchanged, and `System` contains the framing text
+
+#### Scenario: frame-both-off
+
+- **WHEN** the same input is framed with both switches off
 - **THEN** neither message contains `<<report` or the framing text, and every document's text appears unchanged
 
 ### Requirement: Token cap without truncation

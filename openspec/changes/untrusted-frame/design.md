@@ -5,7 +5,8 @@
 - `README.md:19` sets the stage contract `Frame(task, docs) Prompt`: datamark, framing text, token cap.
   `README.md:51` places it in `internal/untrusted`, which milestone 3 exports.
 - Issue #5 specifies the markers `<<report id=pN>> … <</report>>`, `^` for whitespace runs, framing prompts in
-  `internal/untrusted/prompts/*.txt` pinned by hash in each results file, and one on/off toggle.
+  `internal/untrusted/prompts/*.txt` pinned by hash in each results file, and one on/off toggle. The owner split
+  that toggle in two on 2026-11-11 (Decision 7).
 - Issue #7 sets the exported API: `Datamark(docs) Block`, `Frame(task, docs) Prompt`, with `Segment` and `Strip`
   alongside. Whatever this change names, #7 promotes.
 - `internal/corpus/corpus.go:50-54`: `Document{ID, Text}`. `:100`: a paragraph is a split on `\n\n`, indexed from 1
@@ -21,7 +22,7 @@
 
 ## Goals / Non-Goals
 
-Goals: a deterministic, hash-pinned prompt builder with one toggle, plus an exact inverse for quotes. Non-goals: the
+Goals: a deterministic, hash-pinned prompt builder with two independent switches, plus an exact inverse for quotes. Non-goals: the
 reader, schemas, verify, segment and strip, and any tokenizer.
 
 ## Decisions
@@ -35,7 +36,7 @@ reader, schemas, verify, segment and strip, and any tokenizer.
 2. **Marker id.** (a) Use `Document.ID` as given (`d1`). (b) Use positional `p1..pN`, as the issue text has it.
    Option (a) keeps one id space across the prompt, the schema output, and verify. Option (b) hides source IDs from
    the reader but needs a mapping table in verify. **Choose (a)**, with IDs restricted to `[A-Za-z0-9_-]{1,32}` so an
-   ID can never close a marker. (owner) This departs from the `pN` in the #5 text.
+   ID can never close a marker. Ruled by Coby (2026-11-11): document IDs, departing from the `pN` in the #5 text.
 3. **Token cap.** (a) A byte cap on `System`+`User`, defaulting to 16 KiB and set by the caller. (b) A real tokenizer
    per model. Option (b) adds a dependency and is model-specific, and the reader models are still open (#9). Option
    (a) is approximate, but the corpus's largest case is about 3 KiB, so the cap never binds on it. **Choose (a).**
@@ -53,10 +54,17 @@ reader, schemas, verify, segment and strip, and any tokenizer.
 6. **Types.** (a) `untrusted` defines its own `Document` and `Task`. (b) It takes `corpus.Case`. Option (b) couples an
    exported package to an internal one, and #7 could not promote it. **Choose (a).** The runner converts.
 
+7. **Switches.** (a) One frame toggle covering both the datamark and the framing text (#5 as written: 2 cells per
+   model). (b) Two independent switches, `Datamark` and `Framing` (4 cells). Option (a) halves the cost but cannot
+   say which half earned a gain. Option (b) attributes the effect. Under (b), the framing text cannot name the markers,
+   because it also runs with datamark off. **Ruled by Coby (2026-11-11): (b).** So `frame.txt` refers to "the
+   documents in the user message", and one pinned file serves all cells. Seam: the results file records both switches
+   and `FramingSHA256`, and a row that omits a switch is ambiguous.
+
 ## Risks / Trade-offs
 
-- Frame on/off bundles two effects: the datamark and the framing text. A measured gain cannot be split between them
-  until both have their own toggles (Open Question 2).
+- Four cells per model double the reader calls against one toggle. The corpus is 120 entries, so this means 480 calls
+  per model per configuration of the other stages. Concurrency stays under the owner's limit of 2.
 - `Unmark` is exact only for text whose in-paragraph whitespace is single spaces. That holds for the corpus, and a
   test pins it. Live text with tabs or newlines inside a paragraph would make a quote fail to resolve: a false
   B1/broken, never a missed hijack.
@@ -68,6 +76,5 @@ None. This is the first frame. A later change to `frame.txt` changes `FramingSHA
 
 ## Open Questions
 
-1. (owner) Decision 2: use document IDs (`d1`) in the markers rather than `pN`?
-2. (owner) Keep one toggle, as #5 states (2 cells per model), or split datamark and framing (4 cells)? This change
-   ships one, and splitting later is a one-field change to `Options`.
+None open. Both were resolved by Coby on 2026-11-11: document IDs in the markers (Decision 2), and two
+switches (Decision 7).
