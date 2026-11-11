@@ -20,6 +20,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/c360studio/semguard/internal/audit"
 	"github.com/c360studio/semguard/internal/corpus"
 	"github.com/c360studio/semguard/internal/reader"
 	"github.com/c360studio/semguard/internal/report"
@@ -42,6 +43,13 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	frameFlag := fs.String("frame", "off", "frame stage switch: off|on|datamark|framing")
 	datamarkFlag := fs.String("datamark", "", "optional override for datamark switch: on|off")
 	verifyFlag := fs.String("verify", "free", "verify mode: free|schema")
+	auditFlag := fs.String("audit", "off", "audit stage switch: off|semselect|chat")
+	semselectURLFlag := fs.String("semselect-url", os.Getenv("SEMGUARD_SEMSELECT_URL"), "semselect base URL (or SEMGUARD_SEMSELECT_URL)")
+	semselectKeyFlag := fs.String("semselect-key", os.Getenv("SEMGUARD_SEMSELECT_KEY"), "semselect API key (or SEMGUARD_SEMSELECT_KEY)")
+	semselectRevFlag := fs.String("semselect-revision", os.Getenv("SEMGUARD_SEMSELECT_REVISION"), "semselect git revision recorded in results")
+	semselectModelFlag := fs.String("semselect-model-lock", os.Getenv("SEMGUARD_SEMSELECT_MODEL_LOCK"), "semselect models.lock.json entry recorded in results")
+	auditChatModelFlag := fs.String("audit-chat-model", os.Getenv("SEMGUARD_AUDIT_CHAT_MODEL"), "small chat model ID for --audit chat (or SEMGUARD_AUDIT_CHAT_MODEL)")
+	auditThresholdFlag := fs.Float64("audit-threshold", audit.DefaultThreshold, "probability threshold for --audit semselect (default 0.5)")
 	modelFlag := fs.String("model", os.Getenv("SEMGUARD_LLM_MODEL"), "reader model name (or SEMGUARD_LLM_MODEL)")
 	baseURLFlag := fs.String("url", os.Getenv("SEMGUARD_LLM_URL"), "OpenAI-compatible base URL (or SEMGUARD_LLM_URL)")
 	apiKeyFlag := fs.String("key", os.Getenv("SEMGUARD_LLM_KEY"), "API key (or SEMGUARD_LLM_KEY)")
@@ -68,6 +76,10 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	}
 	if *verifyFlag != string(reader.ModeFree) && *verifyFlag != string(reader.ModeSchema) {
 		_, _ = fmt.Fprintf(stderr, "detonate: --verify must be free or schema, got %q\n", *verifyFlag)
+		return 2
+	}
+	if *auditFlag != "off" && *auditFlag != "semselect" && *auditFlag != "chat" {
+		_, _ = fmt.Fprintf(stderr, "detonate: --audit must be off|semselect|chat, got %q\n", *auditFlag)
 		return 2
 	}
 	if *concurrencyFlag < 1 {
@@ -97,6 +109,17 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	endpointHost, err := sanitizeEndpointHost(*baseURLFlag)
 	if err != nil {
 		_, _ = fmt.Fprintf(stderr, "detonate: invalid endpoint URL: %v\n", err)
+		return 2
+	}
+
+	client := &reader.Client{
+		BaseURL:    *baseURLFlag,
+		APIKey:     *apiKeyFlag,
+		HTTPClient: &http.Client{},
+	}
+	auditor, auditMeta, err := buildAuditor(*auditFlag, *semselectURLFlag, *semselectKeyFlag, *semselectRevFlag, *semselectModelFlag, *auditChatModelFlag, *auditThresholdFlag, endpointHost, client)
+	if err != nil {
+		_, _ = fmt.Fprintf(stderr, "detonate: %v\n", err)
 		return 2
 	}
 
@@ -131,11 +154,6 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		schemaSHAByTask[t.ID] = ssha
 	}
 
-	client := &reader.Client{
-		BaseURL:    *baseURLFlag,
-		APIKey:     *apiKeyFlag,
-		HTTPClient: &http.Client{},
-	}
 	mode := reader.Mode(*verifyFlag)
 
 	// Execute warmup requests sequentially before timing corpus cases.
@@ -205,6 +223,13 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 
+	if auditor != nil {
+		if err := executeAudit(ctx, auditor, *auditFlag, *verifyFlag, cases, taskByID, evaluated, *concurrencyFlag, *timeoutFlag); err != nil {
+			_, _ = fmt.Fprintf(stderr, "detonate: %v\n", err)
+			return 1
+		}
+	}
+
 	var primaryTaskSHA, primarySchemaSHA string
 	if len(tasks) > 0 {
 		tsum := sha256.Sum256([]byte(tasks[0].Instruction))
@@ -212,6 +237,11 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		if mode == reader.ModeSchema {
 			primarySchemaSHA = schemaSHAByTask[tasks[0].ID]
 		}
+	}
+
+	var stageAudit string
+	if *auditFlag != "off" {
+		stageAudit = *auditFlag
 	}
 
 	resFile := report.File{
@@ -227,7 +257,9 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 			Datamark: opts.Datamark,
 			Framing:  opts.Framing,
 			Verify:   *verifyFlag,
+			Audit:    stageAudit,
 		},
+		AuditMeta: auditMeta,
 		RankDelta: *rankDeltaFlag,
 		Runs:      evaluated,
 	}
@@ -401,4 +433,140 @@ func resolveCorpusDir(casesFlag string) (corpusDir, repoRoot string) {
 
 func defaultHardware() string {
 	return runtime.GOOS + "/" + runtime.GOARCH
+}
+
+func buildAuditor(
+	auditMode string,
+	semselectURL string,
+	semselectKey string,
+	semselectRev string,
+	semselectModel string,
+	auditChatModel string,
+	threshold float64,
+	readerEndpointHost string,
+	readerClient *reader.Client,
+) (audit.Auditor, *report.AuditMeta, error) {
+	switch auditMode {
+	case "off", "":
+		return nil, nil, nil
+	case "semselect":
+		if strings.TrimSpace(semselectURL) == "" {
+			return nil, nil, errors.New("--semselect-url (or SEMGUARD_SEMSELECT_URL) is required when --audit=semselect")
+		}
+		if threshold <= 0 || threshold > 1 {
+			return nil, nil, fmt.Errorf("--audit-threshold must be in (0, 1], got %v", threshold)
+		}
+		host, err := sanitizeEndpointHost(semselectURL)
+		if err != nil {
+			return nil, nil, fmt.Errorf("invalid --semselect-url: %w", err)
+		}
+		return &audit.SemselectAuditor{
+				BaseURL:    semselectURL,
+				APIKey:     semselectKey,
+				HTTPClient: &http.Client{},
+				Threshold:  threshold,
+			}, &report.AuditMeta{
+				Mode:              "semselect",
+				EndpointHost:      host,
+				SemselectRevision: strings.TrimSpace(semselectRev),
+				SemselectModel:    strings.TrimSpace(semselectModel),
+				Threshold:         threshold,
+			}, nil
+	case "chat":
+		if strings.TrimSpace(auditChatModel) == "" {
+			return nil, nil, errors.New("--audit-chat-model (or SEMGUARD_AUDIT_CHAT_MODEL) is required when --audit=chat")
+		}
+		return &audit.ChatAuditor{
+				Client: readerClient,
+				Model:  strings.TrimSpace(auditChatModel),
+			}, &report.AuditMeta{
+				Mode:         "chat",
+				EndpointHost: readerEndpointHost,
+				Model:        strings.TrimSpace(auditChatModel),
+			}, nil
+	default:
+		return nil, nil, fmt.Errorf("unknown --audit mode %q", auditMode)
+	}
+}
+
+func executeAudit(
+	ctx context.Context,
+	auditor audit.Auditor,
+	auditMode string,
+	verifyMode string,
+	cases []corpus.Case,
+	taskByID map[string]corpus.Task,
+	runs []report.RunResult,
+	concurrency int,
+	timeout time.Duration,
+) error {
+	caseByID := make(map[string]corpus.Case, len(cases))
+	for _, c := range cases {
+		caseByID[c.ID] = c
+	}
+
+	auditCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	jobs := make(chan int, len(runs))
+	for i := range runs {
+		if runs[i].Record != nil && !runs[i].Refused && !runs[i].Outcomes.B1 {
+			jobs <- i
+		}
+	}
+	close(jobs)
+
+	workers := concurrency
+	if auditMode == "semselect" {
+		// semselect serves a single inference slot and returns 429 when busy;
+		// run semselect audit probes serially regardless of --concurrency.
+		workers = 1
+	}
+	if workers > len(runs) && len(runs) > 0 {
+		workers = len(runs)
+	}
+	if workers < 1 {
+		workers = 1
+	}
+
+	var firstErr error
+	var errOnce sync.Once
+	var wg sync.WaitGroup
+	for w := 0; w < workers; w++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for idx := range jobs {
+				if auditCtx.Err() != nil {
+					return
+				}
+				r := &runs[idx]
+				c := caseByID[r.CaseID]
+				t := taskByID[c.Task]
+				reqCtx, reqCancel := context.WithTimeout(auditCtx, timeout)
+				var rawFallback []string
+				if verifyMode == string(reader.ModeFree) && len(r.Record.Claims) == 0 {
+					rawFallback = []string{r.RawResponse}
+				}
+				res, err := auditor.Audit(reqCtx, untrusted.Task{
+					Instruction: t.Instruction,
+					Question:    c.Question,
+				}, *r.Record, rawFallback...)
+				reqCancel()
+				if err != nil {
+					errOnce.Do(func() {
+						firstErr = fmt.Errorf("audit case %s: %w", r.CaseID, err)
+						cancel()
+					})
+					return
+				}
+				r.Audit = &res
+				if res.Label == audit.LabelFlag {
+					r.Outcomes.AuditFlagged = true
+				}
+			}
+		}()
+	}
+	wg.Wait()
+	return firstErr
 }
