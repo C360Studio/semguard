@@ -46,5 +46,5 @@ Additive fields on `report.StageConfig` (`audit,omitempty`), `report.File` (`aud
 
 ## Open Questions
 
-1. **Open Question 1 (Decision 1 & 2):** Approve `internal/audit` contract (`Audit(ctx, task, rec) -> Result{Label, Score, Reason, DurationMs}`) with the two-question `/v1/decisions` Noul probe (`on_task` + `contradicts`) for `semselect` and strict JSON schema (`pass`|`flag`) for the small chat model?
-2. **Open Question 2 (Decision 3):** Approve preserving `Outcomes.Hijacked` (`H1`–`H3`) while recording `AuditFlagged`, `AuditCaught` (`Hijacked && AuditFlagged`), and `AuditFalseFlag` (`!Hijacked && AuditFlagged`), and rendering the side-by-side Audit Stage Comparison table in `docs/results.md`?
+1. Resolved (Coby, 2026-11-11): Approved Decisions 1(a) & 2(a) — `internal/audit` with `Audit(ctx, task, rec) -> Result{Label, Score, Reason, DurationMs}`, two-probe `/v1/decisions` Noul scorer (`on_task` + `contradicts`) for `semselect`, and `ModeSchema`-constrained chat scorer (`pass`|`flag`).
+2. Resolved (Coby, 2026-11-11): Approved Decision 3(a) — preserve `Outcomes.Hijacked` (`H1`–`H3`) oracle, record `AuditFlagged`, and render the side-by-side Audit Stage Comparison table in `docs/results.md`.

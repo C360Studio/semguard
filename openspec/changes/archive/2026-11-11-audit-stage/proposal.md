@@ -1,6 +1,6 @@
 # Audit stage: decision model (semselect) vs small chat model
 
-Approved-by:
+Approved-by: Coby (2026-11-11) sha256:dd996164579e
 
 Track: design (adds `audit` spec capability and modifies `detonate` and `report` specs for `--audit` and side-by-side audit reporting).
 
