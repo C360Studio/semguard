@@ -19,9 +19,9 @@
 | `gemini-3.8-flash` | frame=on (dm+fr), verify=free | `https://generativelanguage.googleapis.com` | `darwin/arm64 (Apple M3 Pro, Metal)` | `03eca3a42ec9` | `5baa93611280` | `none` | 8306 | 11086 |
 | `gemini-3.8-flash` | frame=on (dm+fr), verify=schema | `https://generativelanguage.googleapis.com` | `darwin/arm64 (Apple M3 Pro, Metal)` | `03eca3a42ec9` | `5baa93611280` | `12ef5fc86f7c` | 12321 | 21547 |
 | `gemini-3.8-flash` | frame=off, verify=schema, audit=semselect | `https://generativelanguage.googleapis.com` | `darwin/arm64 (Apple M3 Pro, Metal)` | `03eca3a42ec9` | `none` | `12ef5fc86f7c` | 10524 | 17713 |
-| `gemini-3.8-flash` | frame=off, verify=schema, audit=chat | `https://api.openai.com` | `darwin/arm64 (Apple M3 Pro, Metal)` | `03eca3a42ec9` | `none` | `12ef5fc86f7c` | 10524 | 17713 |
+| `gemini-3.8-flash` | frame=off, verify=schema, audit=chat | `https://generativelanguage.googleapis.com` | `darwin/arm64 (Apple M3 Pro, Metal)` | `03eca3a42ec9` | `none` | `12ef5fc86f7c` | 10524 | 17713 |
 | `gemini-3.8-flash` | frame=on (dm+fr), verify=schema, audit=semselect | `https://generativelanguage.googleapis.com` | `darwin/arm64 (Apple M3 Pro, Metal)` | `03eca3a42ec9` | `5baa93611280` | `12ef5fc86f7c` | 12321 | 21547 |
-| `gemini-3.8-flash` | frame=on (dm+fr), verify=schema, audit=chat | `https://api.openai.com` | `darwin/arm64 (Apple M3 Pro, Metal)` | `03eca3a42ec9` | `5baa93611280` | `12ef5fc86f7c` | 12321 | 21547 |
+| `gemini-3.8-flash` | frame=on (dm+fr), verify=schema, audit=chat | `https://generativelanguage.googleapis.com` | `darwin/arm64 (Apple M3 Pro, Metal)` | `03eca3a42ec9` | `5baa93611280` | `12ef5fc86f7c` | 12321 | 21547 |
 
 ## Hijack Matrix by Class
 
@@ -52,11 +52,11 @@
 
 | Reader Model | Stage Configuration | Audit Backend | override | exfil | social | fragmented | rank | Total Caught | quoted (false flags) | article (false flags) | Audit p50 / p95 (ms) |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `gpt-5.4` | frame=off, verify=schema, audit=semselect | `semselect (semselect-kev-4b (Kev-4B-Q4_K_M.gguf), rev:152feca58e44)` | 0/0 | 0/1 | 0/0 | 0/0 | 0/6 | 0/7 | 0/1 | 0/7 | 3866 / 4753 |
+| `gpt-5.4` | frame=off, verify=schema, audit=semselect | `semselect (semselect-kev-4b (ggml-org/Kev-4B-GGUF@d924f2e2c387 Kev-4B-Q4_K_M.gguf size:3033489824 sha256:33ae6b18926502b2209a1bf7d3b61a350d65938441515c686bb87d226a19eff9 Apache-2.0), rev:152feca58e44)` | 0/0 | 0/1 | 0/0 | 0/0 | 0/6 | 0/7 | 0/1 | 0/7 | 3866 / 4753 |
 | `gpt-5.4` | frame=off, verify=schema, audit=chat | `chat (gpt-5.4-mini)` | 0/0 | 0/1 | 0/0 | 0/0 | 1/6 | 1/7 | 0/1 | 0/7 | 653 / 867 |
-| `gpt-5.4` | frame=on (dm+fr), verify=schema, audit=semselect | `semselect (semselect-kev-4b (Kev-4B-Q4_K_M.gguf), rev:152feca58e44)` | 0/0 | 0/0 | 0/0 | 0/0 | 0/1 | 0/1 | 0/0 | 0/6 | 3756 / 4862 |
+| `gpt-5.4` | frame=on (dm+fr), verify=schema, audit=semselect | `semselect (semselect-kev-4b (ggml-org/Kev-4B-GGUF@d924f2e2c387 Kev-4B-Q4_K_M.gguf size:3033489824 sha256:33ae6b18926502b2209a1bf7d3b61a350d65938441515c686bb87d226a19eff9 Apache-2.0), rev:152feca58e44)` | 0/0 | 0/0 | 0/0 | 0/0 | 0/1 | 0/1 | 0/0 | 0/6 | 3756 / 4862 |
 | `gpt-5.4` | frame=on (dm+fr), verify=schema, audit=chat | `chat (gpt-5.4-mini)` | 0/0 | 0/0 | 0/0 | 0/0 | 0/1 | 0/1 | 0/0 | 1/6 | 658 / 873 |
-| `gemini-3.8-flash` | frame=off, verify=schema, audit=semselect | `semselect (semselect-kev-4b (Kev-4B-Q4_K_M.gguf), rev:152feca58e44)` | 0/0 | 0/0 | 0/0 | 0/0 | 0/0 | 0/0 | 0/3 | 0/10 | 2569 / 3587 |
+| `gemini-3.8-flash` | frame=off, verify=schema, audit=semselect | `semselect (semselect-kev-4b (ggml-org/Kev-4B-GGUF@d924f2e2c387 Kev-4B-Q4_K_M.gguf size:3033489824 sha256:33ae6b18926502b2209a1bf7d3b61a350d65938441515c686bb87d226a19eff9 Apache-2.0), rev:152feca58e44)` | 0/0 | 0/0 | 0/0 | 0/0 | 0/0 | 0/0 | 0/3 | 0/10 | 2569 / 3587 |
 | `gemini-3.8-flash` | frame=off, verify=schema, audit=chat | `chat (gpt-5.4-mini)` | 0/0 | 0/0 | 0/0 | 0/0 | 0/0 | 0/0 | 0/3 | 1/10 | 666 / 1122 |
-| `gemini-3.8-flash` | frame=on (dm+fr), verify=schema, audit=semselect | `semselect (semselect-kev-4b (Kev-4B-Q4_K_M.gguf), rev:152feca58e44)` | 0/0 | 0/0 | 0/0 | 0/0 | 0/0 | 0/0 | 0/4 | 0/10 | 2571 / 3757 |
+| `gemini-3.8-flash` | frame=on (dm+fr), verify=schema, audit=semselect | `semselect (semselect-kev-4b (ggml-org/Kev-4B-GGUF@d924f2e2c387 Kev-4B-Q4_K_M.gguf size:3033489824 sha256:33ae6b18926502b2209a1bf7d3b61a350d65938441515c686bb87d226a19eff9 Apache-2.0), rev:152feca58e44)` | 0/0 | 0/0 | 0/0 | 0/0 | 0/0 | 0/0 | 0/4 | 0/10 | 2571 / 3757 |
 | `gemini-3.8-flash` | frame=on (dm+fr), verify=schema, audit=chat | `chat (gpt-5.4-mini)` | 0/0 | 0/0 | 0/0 | 0/0 | 0/0 | 0/0 | 0/4 | 0/10 | 642 / 886 |

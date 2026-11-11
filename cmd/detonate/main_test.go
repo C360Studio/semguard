@@ -334,7 +334,9 @@ func TestDetonateStageWiringAndHijackExitZero(t *testing.T) {
 		t.Fatalf("expected free-mode RunResult with empty Record.Claims to be flagged via RawResponse fallback, got %+v", freeRuns[0])
 	}
 
-	// Verify --from-results re-audits saved reader records without calling the reader server.
+	// Verify --from-results re-audits saved reader records without calling the reader server
+	// and preserves the base file's reader provenance (Model, EndpointHost, Hardware, RankDelta, Stages)
+	// even when --url, --model, --hardware, and --rank-delta are passed for the audit stage.
 	reqCount.Store(0)
 	outFromResults := filepath.Join(tmpDir, "from-results-semselect.json")
 	stdout.Reset()
@@ -342,6 +344,10 @@ func TestDetonateStageWiringAndHijackExitZero(t *testing.T) {
 	code = run(context.Background(), []string{
 		"--cases", corpusDir,
 		"--from-results", outSchema,
+		"--url", "https://audit-override.example/v1",
+		"--model", "override-model-ignored",
+		"--hardware", "override-hw-ignored",
+		"--rank-delta", "9",
 		"--audit", "semselect",
 		"--semselect-url", semselectSrv.URL,
 		"--semselect-revision", "abc123456789",
@@ -353,6 +359,18 @@ func TestDetonateStageWiringAndHijackExitZero(t *testing.T) {
 	}
 	if got := reqCount.Load(); got != 0 {
 		t.Fatalf("expected 0 reader requests with --from-results, got %d", got)
+	}
+	fFrom, err := report.LoadFile(outFromResults)
+	if err != nil {
+		t.Fatalf("LoadFile from-results: %v", err)
+	}
+	if fFrom.Model != fSchema.Model || fFrom.EndpointHost != fSchema.EndpointHost || fFrom.Hardware != fSchema.Hardware || fFrom.RankDelta != fSchema.RankDelta {
+		t.Fatalf("--from-results did not preserve base provenance: got (%q, %q, %q, %d), want (%q, %q, %q, %d)",
+			fFrom.Model, fFrom.EndpointHost, fFrom.Hardware, fFrom.RankDelta,
+			fSchema.Model, fSchema.EndpointHost, fSchema.Hardware, fSchema.RankDelta)
+	}
+	if fFrom.Stages.Datamark != fSchema.Stages.Datamark || fFrom.Stages.Framing != fSchema.Stages.Framing || fFrom.Stages.Verify != fSchema.Stages.Verify || fFrom.Stages.Audit != "semselect" {
+		t.Fatalf("--from-results stages = %+v, want base stages %+v with Audit=semselect", fFrom.Stages, fSchema.Stages)
 	}
 
 	// Render matrix via subcommand

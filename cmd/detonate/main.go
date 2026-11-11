@@ -161,10 +161,21 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 
 	mode := reader.Mode(*verifyFlag)
 
+	var primaryTaskSHA, primarySchemaSHA string
+	if len(tasks) > 0 {
+		tsum := sha256.Sum256([]byte(tasks[0].Instruction))
+		primaryTaskSHA = hex.EncodeToString(tsum[:])
+		if mode == reader.ModeSchema {
+			primarySchemaSHA = schemaSHAByTask[tasks[0].ID]
+		}
+	}
+
 	var evaluated []report.RunResult
 	var framingSHA string
 	var modelName = *modelFlag
 	var hwName = *hardwareFlag
+	var readerEndpointHost = endpointHost
+	var outRankDelta = *rankDeltaFlag
 	if strings.TrimSpace(*fromResultsFlag) != "" {
 		baseFile, loadErr := report.LoadFile(*fromResultsFlag)
 		if loadErr != nil {
@@ -175,6 +186,23 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 			_, _ = fmt.Fprintf(stderr, "detonate: --from-results corpus_sha256 %q != current corpus %q\n", baseFile.CorpusSHA256, corpusSHA)
 			return 1
 		}
+		if baseFile.TaskInstructionSHA256 != primaryTaskSHA {
+			_, _ = fmt.Fprintf(stderr, "detonate: --from-results task_instruction_sha256 %q != current task %q\n", baseFile.TaskInstructionSHA256, primaryTaskSHA)
+			return 1
+		}
+		opts.Datamark = baseFile.Stages.Datamark
+		opts.Framing = baseFile.Stages.Framing
+		*verifyFlag = baseFile.Stages.Verify
+		mode = reader.Mode(*verifyFlag)
+		if mode == reader.ModeSchema && len(tasks) > 0 {
+			primarySchemaSHA = schemaSHAByTask[tasks[0].ID]
+		} else {
+			primarySchemaSHA = ""
+		}
+		if baseFile.SchemaSHA256 != primarySchemaSHA {
+			_, _ = fmt.Fprintf(stderr, "detonate: --from-results schema_sha256 %q != current schema %q\n", baseFile.SchemaSHA256, primarySchemaSHA)
+			return 1
+		}
 		evaluated = make([]report.RunResult, len(baseFile.Runs))
 		for i, r := range baseFile.Runs {
 			r.Audit = nil
@@ -182,19 +210,12 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 			evaluated[i] = r
 		}
 		framingSHA = baseFile.FramingSHA256
-		opts.Datamark = baseFile.Stages.Datamark
-		opts.Framing = baseFile.Stages.Framing
-		*verifyFlag = baseFile.Stages.Verify
-		mode = reader.Mode(*verifyFlag)
-		if modelName == "" {
-			modelName = baseFile.Model
-		}
-		if endpointHost == "" {
-			endpointHost = baseFile.EndpointHost
-		}
+		modelName = baseFile.Model
+		readerEndpointHost = baseFile.EndpointHost
 		hwName = baseFile.Hardware
+		outRankDelta = baseFile.RankDelta
 		if auditMeta != nil && auditMeta.Mode == "chat" && auditMeta.EndpointHost == "" {
-			auditMeta.EndpointHost = endpointHost
+			auditMeta.EndpointHost = readerEndpointHost
 		}
 	} else {
 		// Execute warmup requests sequentially before timing corpus cases.
@@ -276,15 +297,6 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		}
 	}
 
-	var primaryTaskSHA, primarySchemaSHA string
-	if len(tasks) > 0 {
-		tsum := sha256.Sum256([]byte(tasks[0].Instruction))
-		primaryTaskSHA = hex.EncodeToString(tsum[:])
-		if mode == reader.ModeSchema {
-			primarySchemaSHA = schemaSHAByTask[tasks[0].ID]
-		}
-	}
-
 	var stageAudit string
 	if *auditFlag != "off" {
 		stageAudit = *auditFlag
@@ -293,7 +305,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	resFile := report.File{
 		Version:               1,
 		Model:                 modelName,
-		EndpointHost:          endpointHost,
+		EndpointHost:          readerEndpointHost,
 		Hardware:              hwName,
 		CorpusSHA256:          corpusSHA,
 		TaskInstructionSHA256: primaryTaskSHA,
@@ -306,7 +318,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 			Audit:    stageAudit,
 		},
 		AuditMeta: auditMeta,
-		RankDelta: *rankDeltaFlag,
+		RankDelta: outRankDelta,
 		Runs:      evaluated,
 	}
 
