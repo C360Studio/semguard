@@ -8,9 +8,11 @@ on:
 
 # Superseded PR runs are cancelled, except the run that marking a draft ready
 # starts; pushes to main are not cancelled so two quick merges never leave a
-# cancelled Required on a commit that was never broken.
+# cancelled Required on a commit that was never broken. The draft state is in the
+# group so a draft's skipped run never cancels a ready run that started before it
+# (#21: a push then an immediate ready left Required cancelled).
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.ref }}-${{ github.event.pull_request.draft }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' && github.event.action != 'ready_for_review' }}
 
 permissions:
