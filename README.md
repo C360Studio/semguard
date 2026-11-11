@@ -61,11 +61,13 @@ attacks. The cases are hand-edited and frozen by hash, so the numbers are a lab 
 
 ```bash
 cp .env.example .env   # set the OpenAI-compatible endpoint, key, and reader model
+task tools:ateam       # once per clone: the ateam release pinned in .agents/ateam.json, into .tools/bin
 task check             # offline tests and lint; establishes nothing about models
 ```
 
-Requires Go (version in `go.mod`), [Task](https://taskfile.dev), and golangci-lint v2. The agent workflow is in
-`AGENTS.md`.
+Requires Go (version in `go.mod`), [Task](https://taskfile.dev), golangci-lint v2, and `jq`. The agent workflow is in
+`AGENTS.md`; hooks, MCP, and the Taskfile run ateam through `scripts/ateam`, so start agent sessions at the checkout
+root.
 
 ## License
 

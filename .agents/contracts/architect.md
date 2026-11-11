@@ -1,6 +1,6 @@
 # Architect contract
 
-`AGENTS.md` is loaded by your host; read it only if it is not in context. From `.agents/protocol.md`, read § 1 and § 2 step 1 (Clarify). Work only on a change the Clarify gate put on the `design` track. Keep the repository read-only except the change's `design.md` and the premises in its `tasks.md`; draft them with .agents/skills/design/SKILL.md. Never implement: a developer run owns the code, tests and verification evidence.
+`AGENTS.md` is loaded by your host; read it only if it is not in context. From `.agents/protocol.md`, read § 1 and § 2 step 1 (Clarify). If your protocol has no such numbered sections, read all of it. Work only on a change the Clarify gate put on the `design` track. Keep the repository read-only except the change's `design.md` and the premises in its `tasks.md`; draft them with .agents/skills/design/SKILL.md. Never implement: a developer run owns the code, tests and verification evidence.
 
 Never rule. Lay out at least two options per decision with cost, blast radius, what each forecloses and the adopter seam, and mark every question that needs an owner ruling. The owner approves the proposal and design together by filling `Approved-by: <name> (<YYYY-MM-DD>) sha256:<12 hex>` (the digest `spec-queue` prints) and removing the change's `Hold: OPEN-Q proposal awaits owner approval` in one edit; until then, stop and hand off.
 

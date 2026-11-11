@@ -5,3 +5,4 @@ benchmarks/runs/
 .env
 results/
 bin/
+.tools/
