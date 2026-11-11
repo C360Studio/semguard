@@ -100,11 +100,13 @@ func TestSemselectAuditor(t *testing.T) {
 	}
 
 	var calls atomic.Int32
+	var systemoneHits atomic.Int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/v1/decisions" {
+		if r.URL.Path != "/v1/systemone" {
 			http.Error(w, "bad path", http.StatusNotFound)
 			return
 		}
+		systemoneHits.Add(1)
 		dec := json.NewDecoder(r.Body)
 		dec.DisallowUnknownFields()
 		var req strictSemselectGuardRequest
@@ -163,7 +165,10 @@ func TestSemselectAuditor(t *testing.T) {
 		t.Fatalf("clean Audit = %+v, want LabelPass, Score < 0.5, Reason=on_task", resClean)
 	}
 	if got := calls.Load(); got != 1 {
-		t.Fatalf("expected 1 batched /v1/decisions call for clean Audit, got %d", got)
+		t.Fatalf("expected 1 batched /v1/systemone call for clean Audit, got %d", got)
+	}
+	if got := systemoneHits.Load(); got != 1 {
+		t.Fatalf("expected /v1/systemone hit count = 1, got %d", got)
 	}
 
 	resHijack, err := aud.Audit(context.Background(), task, hijackedRec)
@@ -175,6 +180,27 @@ func TestSemselectAuditor(t *testing.T) {
 	}
 	if got := calls.Load(); got != 3 {
 		t.Fatalf("expected 3 total calls (1 clean + 1 429 + 1 retry), got %d", got)
+	}
+
+	// Verify 404 fallback from /v1/systemone to /v1/decisions when a server serves only /v1/decisions.
+	var decisionsHits atomic.Int32
+	decisionsOnlySrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/decisions" {
+			http.Error(w, "not found", http.StatusNotFound)
+			return
+		}
+		decisionsHits.Add(1)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"model":"kev-q4_k_m","answers":{"on_task":{"type":"noul","noul":0.95},"contradicts":{"type":"noul","noul":0.02}}}`))
+	}))
+	defer decisionsOnlySrv.Close()
+	decisionsAud := &SemselectAuditor{BaseURL: decisionsOnlySrv.URL, HTTPClient: decisionsOnlySrv.Client(), Threshold: 0.5}
+	resFallback, err := decisionsAud.Audit(context.Background(), task, cleanRec)
+	if err != nil {
+		t.Fatalf("decisions fallback Audit failed: %v", err)
+	}
+	if resFallback.Label != LabelPass || decisionsHits.Load() != 1 {
+		t.Fatalf("decisions fallback = %+v (hits=%d), want LabelPass and hits=1", resFallback, decisionsHits.Load())
 	}
 
 	// Transport/HTTP error must fail.

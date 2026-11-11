@@ -18,6 +18,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/c360studio/semguard/internal/audit"
@@ -54,6 +55,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	baseURLFlag := fs.String("url", os.Getenv("SEMGUARD_LLM_URL"), "OpenAI-compatible base URL (or SEMGUARD_LLM_URL)")
 	apiKeyFlag := fs.String("key", os.Getenv("SEMGUARD_LLM_KEY"), "API key (or SEMGUARD_LLM_KEY)")
 	outFlag := fs.String("out", "", "output results JSON path")
+	fromResultsFlag := fs.String("from-results", "", "optional existing results JSON path to re-audit the exact same reader records without re-running the reader")
 	warmupFlag := fs.Int("warmup", 0, "number of warmup requests before timing corpus runs")
 	timeoutFlag := fs.Duration("timeout", 60*time.Second, "per-request timeout")
 	concurrencyFlag := fs.Int("concurrency", 2, "worker concurrency (default 2)")
@@ -98,18 +100,21 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		_, _ = fmt.Fprintln(stderr, "detonate: --out is required")
 		return 2
 	}
-	if strings.TrimSpace(*modelFlag) == "" {
+	if strings.TrimSpace(*fromResultsFlag) == "" && strings.TrimSpace(*modelFlag) == "" {
 		_, _ = fmt.Fprintln(stderr, "detonate: --model (or SEMGUARD_LLM_MODEL) is required")
 		return 2
 	}
-	if strings.TrimSpace(*baseURLFlag) == "" {
+	if (strings.TrimSpace(*fromResultsFlag) == "" || *auditFlag == "chat") && strings.TrimSpace(*baseURLFlag) == "" {
 		_, _ = fmt.Fprintln(stderr, "detonate: --url (or SEMGUARD_LLM_URL) is required")
 		return 2
 	}
-	endpointHost, err := sanitizeEndpointHost(*baseURLFlag)
-	if err != nil {
-		_, _ = fmt.Fprintf(stderr, "detonate: invalid endpoint URL: %v\n", err)
-		return 2
+	var endpointHost string
+	if strings.TrimSpace(*baseURLFlag) != "" {
+		endpointHost, err = sanitizeEndpointHost(*baseURLFlag)
+		if err != nil {
+			_, _ = fmt.Fprintf(stderr, "detonate: invalid endpoint URL: %v\n", err)
+			return 2
+		}
 	}
 
 	client := &reader.Client{
@@ -156,86 +161,139 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 
 	mode := reader.Mode(*verifyFlag)
 
-	// Execute warmup requests sequentially before timing corpus cases.
-	if *warmupFlag > 0 && len(cases) > 0 {
-		for i := 0; i < *warmupFlag; i++ {
-			wc := cases[i%len(cases)]
-			if _, _, err := executeOne(ctx, client, wc, taskByID[wc.Task], schemaByTask[wc.Task], opts, mode, *modelFlag, *timeoutFlag); err != nil {
-				_, _ = fmt.Fprintf(stderr, "detonate: warmup %d (%s): %v\n", i+1, wc.ID, err)
-				return 1
-			}
-		}
-	}
-
-	rawRuns := make([]report.RunResult, len(cases))
-	var framingSHA string
-	var firstErr error
-	var errOnce sync.Once
-
-	runCtx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	jobs := make(chan int, len(cases))
-	for i := range cases {
-		jobs <- i
-	}
-	close(jobs)
-
-	var wg sync.WaitGroup
-	workers := *concurrencyFlag
-	if workers > len(cases) && len(cases) > 0 {
-		workers = len(cases)
-	}
-	var fshaOnce sync.Once
-	for w := 0; w < workers; w++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for idx := range jobs {
-				if runCtx.Err() != nil {
-					return
-				}
-				c := cases[idx]
-				t := taskByID[c.Task]
-				rr, fsha, err := executeOne(runCtx, client, c, t, schemaByTask[c.Task], opts, mode, *modelFlag, *timeoutFlag)
-				if err != nil {
-					errOnce.Do(func() {
-						firstErr = fmt.Errorf("case %s: %w", c.ID, err)
-						cancel()
-					})
-					return
-				}
-				fshaOnce.Do(func() { framingSHA = fsha })
-				rawRuns[idx] = rr
-			}
-		}()
-	}
-	wg.Wait()
-
-	if firstErr != nil {
-		_, _ = fmt.Fprintf(stderr, "detonate: %v\n", firstErr)
-		return 1
-	}
-
-	evaluated, err := report.Evaluate(cases, rawRuns, *verifyFlag, *rankDeltaFlag)
-	if err != nil {
-		_, _ = fmt.Fprintf(stderr, "detonate: evaluate: %v\n", err)
-		return 1
-	}
-
-	if auditor != nil {
-		if err := executeAudit(ctx, auditor, *auditFlag, *verifyFlag, cases, taskByID, evaluated, *concurrencyFlag, *timeoutFlag); err != nil {
-			_, _ = fmt.Fprintf(stderr, "detonate: %v\n", err)
-			return 1
-		}
-	}
-
 	var primaryTaskSHA, primarySchemaSHA string
 	if len(tasks) > 0 {
 		tsum := sha256.Sum256([]byte(tasks[0].Instruction))
 		primaryTaskSHA = hex.EncodeToString(tsum[:])
 		if mode == reader.ModeSchema {
 			primarySchemaSHA = schemaSHAByTask[tasks[0].ID]
+		}
+	}
+
+	var evaluated []report.RunResult
+	var framingSHA string
+	var modelName = *modelFlag
+	var hwName = *hardwareFlag
+	var readerEndpointHost = endpointHost
+	var outRankDelta = *rankDeltaFlag
+	if strings.TrimSpace(*fromResultsFlag) != "" {
+		baseFile, loadErr := report.LoadFile(*fromResultsFlag)
+		if loadErr != nil {
+			_, _ = fmt.Fprintf(stderr, "detonate: load --from-results %s: %v\n", *fromResultsFlag, loadErr)
+			return 1
+		}
+		if baseFile.CorpusSHA256 != corpusSHA {
+			_, _ = fmt.Fprintf(stderr, "detonate: --from-results corpus_sha256 %q != current corpus %q\n", baseFile.CorpusSHA256, corpusSHA)
+			return 1
+		}
+		if baseFile.TaskInstructionSHA256 != primaryTaskSHA {
+			_, _ = fmt.Fprintf(stderr, "detonate: --from-results task_instruction_sha256 %q != current task %q\n", baseFile.TaskInstructionSHA256, primaryTaskSHA)
+			return 1
+		}
+		opts.Datamark = baseFile.Stages.Datamark
+		opts.Framing = baseFile.Stages.Framing
+		*verifyFlag = baseFile.Stages.Verify
+		mode = reader.Mode(*verifyFlag)
+		if mode == reader.ModeSchema && len(tasks) > 0 {
+			primarySchemaSHA = schemaSHAByTask[tasks[0].ID]
+		} else {
+			primarySchemaSHA = ""
+		}
+		if baseFile.SchemaSHA256 != primarySchemaSHA {
+			_, _ = fmt.Fprintf(stderr, "detonate: --from-results schema_sha256 %q != current schema %q\n", baseFile.SchemaSHA256, primarySchemaSHA)
+			return 1
+		}
+		evaluated = make([]report.RunResult, len(baseFile.Runs))
+		for i, r := range baseFile.Runs {
+			r.Audit = nil
+			r.Outcomes.AuditFlagged = false
+			evaluated[i] = r
+		}
+		framingSHA = baseFile.FramingSHA256
+		modelName = baseFile.Model
+		readerEndpointHost = baseFile.EndpointHost
+		hwName = baseFile.Hardware
+		outRankDelta = baseFile.RankDelta
+		if auditMeta != nil && auditMeta.Mode == "chat" && auditMeta.EndpointHost == "" {
+			auditMeta.EndpointHost = readerEndpointHost
+		}
+	} else {
+		// Execute warmup requests sequentially before timing corpus cases.
+		if *warmupFlag > 0 && len(cases) > 0 {
+			for i := 0; i < *warmupFlag; i++ {
+				wc := cases[i%len(cases)]
+				if _, _, err := executeOne(ctx, client, wc, taskByID[wc.Task], schemaByTask[wc.Task], opts, mode, *modelFlag, *timeoutFlag); err != nil {
+					_, _ = fmt.Fprintf(stderr, "detonate: warmup %d (%s): %v\n", i+1, wc.ID, err)
+					return 1
+				}
+			}
+		}
+
+		rawRuns := make([]report.RunResult, len(cases))
+		var firstErr error
+		var errOnce sync.Once
+
+		runCtx, cancel := context.WithCancel(ctx)
+		defer cancel()
+
+		jobs := make(chan int, len(cases))
+		for i := range cases {
+			jobs <- i
+		}
+		close(jobs)
+
+		var wg sync.WaitGroup
+		workers := *concurrencyFlag
+		if workers > len(cases) && len(cases) > 0 {
+			workers = len(cases)
+		}
+		var fshaOnce sync.Once
+		var doneCount int64
+		for w := 0; w < workers; w++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				for idx := range jobs {
+					if runCtx.Err() != nil {
+						return
+					}
+					c := cases[idx]
+					t := taskByID[c.Task]
+					rr, fsha, err := executeOne(runCtx, client, c, t, schemaByTask[c.Task], opts, mode, *modelFlag, *timeoutFlag)
+					if err != nil {
+						errOnce.Do(func() {
+							firstErr = fmt.Errorf("case %s: %w", c.ID, err)
+							cancel()
+						})
+						return
+					}
+					fshaOnce.Do(func() { framingSHA = fsha })
+					rawRuns[idx] = rr
+					n := atomic.AddInt64(&doneCount, 1)
+					if n%20 == 0 || int(n) == len(cases) {
+						_, _ = fmt.Fprintf(stderr, "detonate: progress %d/%d (%s, %dms)\n", n, len(cases), c.ID, rr.DurationMs)
+					}
+				}
+			}()
+		}
+		wg.Wait()
+
+		if firstErr != nil {
+			_, _ = fmt.Fprintf(stderr, "detonate: %v\n", firstErr)
+			return 1
+		}
+
+		evaluated, err = report.Evaluate(cases, rawRuns, *verifyFlag, *rankDeltaFlag)
+		if err != nil {
+			_, _ = fmt.Fprintf(stderr, "detonate: evaluate: %v\n", err)
+			return 1
+		}
+	}
+
+	if auditor != nil {
+		if err := executeAudit(ctx, auditor, *auditFlag, *verifyFlag, cases, taskByID, evaluated, *concurrencyFlag, *timeoutFlag); err != nil {
+			_, _ = fmt.Fprintf(stderr, "detonate: %v\n", err)
+			return 1
 		}
 	}
 
@@ -246,9 +304,9 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 
 	resFile := report.File{
 		Version:               1,
-		Model:                 *modelFlag,
-		EndpointHost:          endpointHost,
-		Hardware:              *hardwareFlag,
+		Model:                 modelName,
+		EndpointHost:          readerEndpointHost,
+		Hardware:              hwName,
 		CorpusSHA256:          corpusSHA,
 		TaskInstructionSHA256: primaryTaskSHA,
 		FramingSHA256:         framingSHA,
@@ -260,7 +318,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 			Audit:    stageAudit,
 		},
 		AuditMeta: auditMeta,
-		RankDelta: *rankDeltaFlag,
+		RankDelta: outRankDelta,
 		Runs:      evaluated,
 	}
 
