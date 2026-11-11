@@ -1,0 +1,5 @@
+# Tasks: audit-stage
+
+- [ ] 1. **Hold: OPEN-Q proposal awaits owner approval** — Resolve Open Questions 1–2 in `openspec/changes/audit-stage/design.md` and record `Approved-by:` in `openspec/changes/audit-stage/proposal.md` (`scripts/ateam state spec-queue`).
+- [ ] 2. Implement `internal/audit` (`FormatInput`, `SemselectAuditor`, `ChatAuditor`, `Result`) grounded in `verify/verify.go:37-56` and `internal/reader/reader.go:36-62,120-249`, with unit tests (`TestAuditFormatExcludesDocuments`, `TestSemselectAuditor`, `TestChatAuditor`), `FuzzAuditFormatAndScore`, and mutation check (`scripts/ateam mutate`).
+- [ ] 3. Extend `internal/report` (`internal/report/report.go:29-99,189-310,400-506`) and `cmd/detonate` (`cmd/detonate/main.go:41-55,217-233,295-350`) with `--audit off|semselect|chat`, `semselect` revision/lockfile metadata, audit outcome tallies (`AuditFlagged`, caught hijacks, false flags on `quoted`/`article`), and side-by-side audit comparison rendering in `RenderMarkdown`, verified by `task verify`.
