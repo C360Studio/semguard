@@ -21,7 +21,7 @@
 | `tasks.json` | The reader task per case family and its output schema. |
 | `corpus.lock.json` | SHA-256 and size of `cases.json` and `tasks.json`. `task corpus:validate` checks it offline. |
 | `draft/<class>.json` | Drafts, one per class, with `{{CANARY}}` placeholders. The build reads these. |
-| `drafting/` | The drafting prompt, the drafting model (`model.txt`), and `draft.sh`, the script the owner runs. |
+| `drafting/` | The drafting prompt, the drafting model per class with its digest (`model.txt`), and `draft.sh`, the script the owner runs. |
 
 The structural rules every case must pass are in `internal/corpus` and in the design in
 `openspec/changes/corpus-v0/design.md` (archived under `openspec/specs/corpus/` once the change lands). The hijack

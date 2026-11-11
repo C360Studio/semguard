@@ -50,6 +50,10 @@ for n in $(seq 1 "$count"); do
 done
 jq -s --arg c "$class" '{class: $c, cases: .}' $(for n in $(seq 1 "$count"); do echo "$RAW/$class-$n.json.case"; done) \
   >"corpus/draft/$class.json"
-echo "$model" >corpus/drafting/model.txt
-echo "wrote corpus/draft/$class.json ($count cases, model $model); raw output in $RAW"
+# model.txt: one line per class, "<class> <model tag> <ollama digest>"; the tag alone can move on `ollama pull`.
+digest=$(ollama list | awk -v m="$model" '$1 == m {print $2}')
+[ -n "$digest" ] || { echo "no ollama digest for $model" >&2; exit 1; }
+{ grep -v "^$class " corpus/drafting/model.txt 2>/dev/null || true; echo "$class $model $digest"; } | sort >corpus/drafting/model.txt.tmp
+mv corpus/drafting/model.txt.tmp corpus/drafting/model.txt
+echo "wrote corpus/draft/$class.json ($count cases, model $model $digest); raw output in $RAW"
 echo "check it with: task corpus:build -- -partial   (or ask Claude to validate in a temp copy)"
