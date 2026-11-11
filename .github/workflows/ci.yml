@@ -2,36 +2,52 @@ name: CI
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
   push:
     branches: [main]
+
+# Superseded PR runs are cancelled, except the run that marking a draft ready
+# starts; pushes to main are not cancelled so two quick merges never leave a
+# cancelled Required on a commit that was never broken.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' && github.event.action != 'ready_for_review' }}
 
 permissions:
   contents: read
 
 jobs:
   check:
-    name: Check
+    name: ${{ github.event.pull_request.draft && 'Check (draft, skipped)' || 'Check' }}
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
+      # Full history so ateam test-spec --base finds the merge base with the PR's base branch.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
       - uses: go-task/setup-task@a00fbb05ce67b35648be3c78cbc9fd85354c757e # v2.2.0
         with:
           version: 3.51.1
-      - name: Install golangci-lint
+      - name: Install golangci-lint and ateam
         env:
           GOTOOLCHAIN: auto
-        run: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0
-      - run: task check
+        run: |
+          go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0
+          go install github.com/c360studio/ateam/cmd/ateam@v0.4.0
+      - env:
+          TEST_SPEC_BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || (github.event.before != '0000000000000000000000000000000000000000' && github.event.before || 'origin/main') }}
+        run: task verify
 
   # Single required status check: anything other than success in a needed job fails it.
   required:
-    name: Required
+    name: ${{ github.event.pull_request.draft && 'Required (draft, skipped)' || 'Required' }}
     needs: [check]
-    if: always()
+    if: always() && (github.event_name != 'pull_request' || !github.event.pull_request.draft)
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:

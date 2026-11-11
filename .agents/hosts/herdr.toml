@@ -1,0 +1,18 @@
+# herdr host manifest for ateam review request and notify (#295). A gate file:
+# a change here changes what review_launch: agent does, so it needs the owner's
+# gate-change-approved label.
+#
+# herdr 0.9.5 starts an agent only in an existing pane at a shell prompt and
+# takes the prompt once the agent is ready (herdr agent start --help), so a
+# launch is three calls passing the new pane's id: there is no one-command form
+# to run, and the launch is tool text the agent follows. Arguments after -- go to
+# the selected agent's own CLI, whose model and effort flags differ by agent.
+# The new pane opens in the requester's checkout, so --env ATEAM_ROLE=review
+# keeps the reviewer's hooks off that checkout's writer lease (#315).
+
+[launch]
+tool = "run herdr pane split --pane {return_to} --direction right --no-focus --env ATEAM_ROLE=review and read the new pane id; then herdr agent start review-pr-{pr} --kind {agent} --pane <new pane id> -- <{agent}'s own flags for model {model} and effort {effort}: claude takes --model M --effort E, codex -m M -c model_reasoning_effort=E, gemini -m M>; then herdr agent prompt <new pane id> '{prompt}'; tell the reviewer to finish with ateam review notify --record <record file> --return-to {return_to} {pr}"
+
+# The fixed message is appended as the last argument, never substituted.
+[notify]
+command = ["herdr", "agent", "prompt", "{return_to}"]
