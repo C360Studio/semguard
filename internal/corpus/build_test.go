@@ -1,6 +1,7 @@
 package corpus
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -70,8 +71,8 @@ func counter() func() (string, error) {
 func buildFull(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
-	writeDrafts(t, dir, Classes, 10)
-	if _, err := Build(dir, counter()); err != nil {
+	writeDrafts(t, dir, classes, 10)
+	if _, err := Build(dir, counter(), false); err != nil {
 		t.Fatalf("build: %v", err)
 	}
 	return dir
@@ -118,7 +119,7 @@ func TestLoadLockMismatch(t *testing.T) {
 func TestBuildDerivesControls(t *testing.T) {
 	dir := t.TempDir()
 	writeDrafts(t, dir, []string{"override", "quoted"}, 1)
-	if _, err := Build(dir, counter()); err != nil {
+	if _, err := Build(dir, counter(), true); err != nil {
 		t.Fatal(err)
 	}
 	b, err := os.ReadFile(filepath.Join(dir, "cases.json"))
@@ -164,7 +165,7 @@ func TestBuildDerivesControls(t *testing.T) {
 func TestBuildReusesCanaries(t *testing.T) {
 	dir := t.TempDir()
 	writeDrafts(t, dir, []string{"override"}, 2)
-	if _, err := Build(dir, counter()); err != nil {
+	if _, err := Build(dir, counter(), true); err != nil {
 		t.Fatal(err)
 	}
 	first, err := os.ReadFile(filepath.Join(dir, "cases.json"))
@@ -173,7 +174,7 @@ func TestBuildReusesCanaries(t *testing.T) {
 	}
 	// Rebuild with a generator that would collide with a frozen canary first, then add a third case.
 	writeDrafts(t, dir, []string{"override"}, 3)
-	res, err := Build(dir, counter())
+	res, err := Build(dir, counter(), true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -212,10 +213,115 @@ func TestBuildRejectsInvalidAndWritesNothing(t *testing.T) {
 	if err := os.WriteFile(p, []byte(bad), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := Build(dir, counter()); err == nil || !strings.Contains(err.Error(), "exfil-001") {
+	if _, err := Build(dir, counter(), true); err == nil || !strings.Contains(err.Error(), "exfil-001") {
 		t.Fatalf("want validation error naming exfil-001, got %v", err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, "cases.json")); !os.IsNotExist(err) {
 		t.Fatalf("cases.json must not be written on failure: %v", err)
+	}
+}
+
+// spec: openspec/changes/corpus-v0/specs/corpus/spec.md#Requirement: Frozen case file pinned by hash
+func TestBuildMissingDraftNeedsPartial(t *testing.T) {
+	dir := t.TempDir()
+	writeDrafts(t, dir, []string{"override"}, 1)
+	_, err := Build(dir, counter(), false)
+	if err == nil || !strings.Contains(err.Error(), "draft missing for class exfil") {
+		t.Fatalf("want missing-draft error, got %v", err)
+	}
+	var ve *ValidationError
+	if !errors.As(err, &ve) {
+		t.Fatalf("want ValidationError, got %T", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "cases.json")); !os.IsNotExist(err) {
+		t.Fatalf("cases.json must not be written: %v", err)
+	}
+}
+
+// spec: openspec/changes/corpus-v0/specs/corpus/spec.md#Requirement: Frozen case file pinned by hash
+func TestBuildPartialWritesNoLock(t *testing.T) {
+	dir := t.TempDir()
+	writeDrafts(t, dir, []string{"override"}, 1)
+	if _, err := Build(dir, counter(), true); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "corpus.lock.json")); !os.IsNotExist(err) {
+		t.Fatalf("partial build must not write the lock: %v", err)
+	}
+}
+
+// spec: openspec/changes/corpus-v0/specs/corpus/spec.md#Requirement: Frozen case file pinned by hash
+func TestBuildRefusesToDropFrozenCases(t *testing.T) {
+	for _, partial := range []bool{false, true} {
+		t.Run(fmt.Sprint("partial=", partial), func(t *testing.T) {
+			dir := buildFull(t)
+			before, err := os.ReadFile(filepath.Join(dir, "cases.json"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			writeDrafts(t, dir, classes, 9) // drops n=10 of every class
+			_, err = Build(dir, counter(), partial)
+			if err == nil || !strings.Contains(err.Error(), "would drop frozen case override-010") {
+				t.Fatalf("want drop refusal naming override-010, got %v", err)
+			}
+			after, err := os.ReadFile(filepath.Join(dir, "cases.json"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(before) != string(after) {
+				t.Fatal("cases.json changed despite refusal")
+			}
+		})
+	}
+}
+
+// spec: openspec/changes/corpus-v0/specs/corpus/spec.md#Requirement: Case structure
+func TestBuildNeverLeavesPlaceholderOrCanaryInQuestion(t *testing.T) {
+	dir := t.TempDir()
+	writeDrafts(t, dir, []string{"override"}, 1)
+	p := filepath.Join(dir, "draft", "override.json")
+	b, err := os.ReadFile(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bad := strings.Replace(string(b), `"question 1"`, `"question {{CANARY}}"`, 1)
+	if err := os.WriteFile(p, []byte(bad), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, err = Build(dir, counter(), true)
+	if err == nil || !strings.Contains(err.Error(), "override-001: canary appears in the question") {
+		t.Fatalf("want canary-in-question error, got %v", err)
+	}
+}
+
+// spec: openspec/changes/corpus-v0/specs/corpus/spec.md#Requirement: Frozen case file pinned by hash
+func TestLoadRejectsLockVersion(t *testing.T) {
+	dir := buildFull(t)
+	p := filepath.Join(dir, "corpus.lock.json")
+	b, err := os.ReadFile(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(p, []byte(strings.Replace(string(b), `"version": 1`, `"version": 2`, 1)), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := Load(dir); err == nil || !strings.Contains(err.Error(), "lock version 2") {
+		t.Fatalf("want lock version error, got %v", err)
+	}
+}
+
+// spec: openspec/changes/corpus-v0/specs/corpus/spec.md#Requirement: Frozen case file pinned by hash
+func TestLoadWithHashReturnsLockedHash(t *testing.T) {
+	dir := buildFull(t)
+	_, _, sum, err := LoadWithHash(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want, err := FileSHA256(filepath.Join(dir, "cases.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sum != want {
+		t.Fatalf("hash %s want %s", sum, want)
 	}
 }

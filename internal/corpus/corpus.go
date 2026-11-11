@@ -19,8 +19,8 @@ import (
 // maxFileBytes bounds every corpus file read.
 const maxFileBytes = 16 << 20
 
-// Classes lists every class in corpus order; attack classes come first.
-var Classes = []string{"override", "exfil", "social", "fragmented", "rank", "quoted", "article"}
+// classes lists every class in corpus order; attack classes come first.
+var classes = []string{"override", "exfil", "social", "fragmented", "rank", "quoted", "article"}
 
 var asks = map[string]string{
 	"override": "repeat", "exfil": "link", "social": "repeat", "fragmented": "repeat",
@@ -34,6 +34,16 @@ func isAttack(class string) bool {
 		return true
 	}
 	return false
+}
+
+// ValidationError marks a corpus that is wrong, as opposed to one that cannot be read.
+type ValidationError struct{ Err error }
+
+func (e *ValidationError) Error() string { return e.Err.Error() }
+func (e *ValidationError) Unwrap() error { return e.Err }
+
+func invalid(format string, a ...any) error {
+	return &ValidationError{Err: fmt.Errorf(format, a...)}
 }
 
 // Document is one source text shown to the reader.
@@ -120,52 +130,63 @@ func decodeStrict(b []byte, v any) error {
 // Load verifies the lockfile in dir, then parses and validates the corpus.
 // On any failure it returns no cases.
 func Load(dir string) ([]Case, []Task, error) {
+	c, t, _, err := LoadWithHash(dir)
+	return c, t, err
+}
+
+// LoadWithHash is Load that also returns the verified sha256 of cases.json.
+func LoadWithHash(dir string) ([]Case, []Task, string, error) {
 	lb, err := readBounded(filepath.Join(dir, "corpus.lock.json"))
 	if err != nil {
-		return nil, nil, fmt.Errorf("read lock: %w", err)
+		return nil, nil, "", fmt.Errorf("read lock: %w", err)
 	}
 	var lock Lock
 	if err := decodeStrict(lb, &lock); err != nil {
-		return nil, nil, fmt.Errorf("parse corpus.lock.json: %w", err)
+		return nil, nil, "", invalid("parse corpus.lock.json: %v", err)
+	}
+	if lock.Version != 1 {
+		return nil, nil, "", invalid("corpus.lock.json: lock version %d, want 1", lock.Version)
 	}
 	data := map[string][]byte{}
+	sums := map[string]string{}
 	for _, e := range lock.Files {
 		if !filepath.IsLocal(e.Path) {
-			return nil, nil, fmt.Errorf("lock path %q is not local", e.Path)
+			return nil, nil, "", invalid("lock path %q is not local", e.Path)
 		}
 		b, err := readBounded(filepath.Join(dir, e.Path))
 		if err != nil {
-			return nil, nil, fmt.Errorf("read %s: %w", e.Path, err)
+			return nil, nil, "", fmt.Errorf("read %s: %w", e.Path, err)
 		}
 		sum := sha256.Sum256(b)
 		if int64(len(b)) != e.Size || hex.EncodeToString(sum[:]) != e.SHA256 {
-			return nil, nil, fmt.Errorf("%s: does not match corpus.lock.json (size or sha256)", e.Path)
+			return nil, nil, "", invalid("%s: does not match corpus.lock.json (size or sha256)", e.Path)
 		}
 		data[e.Path] = b
+		sums[e.Path] = e.SHA256
 	}
 	var cf casesFile
 	var tf tasksFile
 	for name, v := range map[string]any{"cases.json": &cf, "tasks.json": &tf} {
 		b, ok := data[name]
 		if !ok {
-			return nil, nil, fmt.Errorf("%s: not pinned in corpus.lock.json", name)
+			return nil, nil, "", invalid("%s: not pinned in corpus.lock.json", name)
 		}
 		if err := decodeStrict(b, v); err != nil {
-			return nil, nil, fmt.Errorf("parse %s: %w", name, err)
+			return nil, nil, "", invalid("parse %s: %v", name, err)
 		}
 	}
 	if err := Validate(cf.Cases, tf.Tasks); err != nil {
-		return nil, nil, err
+		return nil, nil, "", err
 	}
 	if err := CheckCounts(cf.Cases); err != nil {
-		return nil, nil, err
+		return nil, nil, "", err
 	}
-	return cf.Cases, tf.Tasks, nil
+	return cf.Cases, tf.Tasks, sums["cases.json"], nil
 }
 
 var (
 	canaryRe = regexp.MustCompile(`^SECRET-[A-F0-9]{8}$`)
-	urlRe    = regexp.MustCompile(`https?://[^\s)\]>"']+`)
+	urlRe    = regexp.MustCompile(`(?i)(?:[a-z][a-z0-9+.-]*://|\bwww\.)[^\s)\]>"']+`)
 )
 
 // CheckCounts requires exactly 10 non-control cases per class and 50 controls.
@@ -180,7 +201,7 @@ func CheckCounts(cases []Case) error {
 		}
 	}
 	var errs []error
-	for _, cl := range Classes {
+	for _, cl := range classes {
 		if per[cl] != 10 {
 			errs = append(errs, fmt.Errorf("class %s: %d cases, want 10", cl, per[cl]))
 		}
@@ -188,7 +209,14 @@ func CheckCounts(cases []Case) error {
 	if controls != 50 {
 		errs = append(errs, fmt.Errorf("%d controls, want 50", controls))
 	}
-	return errors.Join(errs...)
+	return wrap(errors.Join(errs...))
+}
+
+func wrap(err error) error {
+	if err == nil {
+		return nil
+	}
+	return &ValidationError{Err: err}
 }
 
 func docByID(c Case, id string) (Document, bool) {
@@ -226,6 +254,9 @@ func Validate(cases []Case, tasks []Task) error {
 		seen[c.ID] = true
 		validateCommon(c, taskIDs, add)
 		if c.ControlOf == nil {
+			if !idRe(c.Class).MatchString(c.ID) {
+				add(c, "id must be %q", c.Class+"-NNN")
+			}
 			if !canaryRe.MatchString(c.Canary) {
 				continue
 			}
@@ -236,6 +267,9 @@ func Validate(cases []Case, tasks []Task) error {
 			validateAttack(c, add)
 		} else {
 			controlsOf[*c.ControlOf]++
+			if want := *c.ControlOf + "-control"; c.ID != want {
+				add(c, "id must be %q", want)
+			}
 			validateControl(c, byID, add)
 		}
 	}
@@ -244,10 +278,37 @@ func Validate(cases []Case, tasks []Task) error {
 			add(c, "has %d controls, want exactly 1", controlsOf[c.ID])
 		}
 	}
-	return errors.Join(errs...)
+	return wrap(errors.Join(errs...))
 }
 
 type adder func(c Case, format string, a ...any)
+
+func idRe(class string) *regexp.Regexp {
+	return regexp.MustCompile("^" + regexp.QuoteMeta(class) + `-[0-9]{3}$`)
+}
+
+// checkText applies the text rules shared by documents and the question.
+func checkText(c Case, label, text string, add adder) {
+	for _, u := range urlRe.FindAllString(text, -1) {
+		probe := u
+		if !strings.Contains(u, "://") {
+			probe = "//" + u
+		}
+		h := ""
+		if p, err := url.Parse(probe); err == nil {
+			h = strings.ToLower(p.Hostname())
+		}
+		if !strings.HasSuffix(h, ".example") && !strings.HasSuffix(h, ".invalid") {
+			add(c, "%s: URL %q is not on a reserved .example/.invalid host", label, u)
+		}
+	}
+	if strings.Contains(text, "{{CANARY}}") {
+		add(c, "%s: unfilled {{CANARY}} placeholder", label)
+	}
+	if strings.Contains(strings.ReplaceAll(text, c.Canary, ""), "SECRET-") {
+		add(c, "%s: contains a SECRET- string other than the case canary", label)
+	}
+}
 
 func validateCommon(c Case, taskIDs map[string]bool, add adder) {
 	want, known := asks[c.Class]
@@ -272,22 +333,11 @@ func validateCommon(c Case, taskIDs map[string]bool, add adder) {
 			add(c, "duplicate document id %q", d.ID)
 		}
 		ids[d.ID] = true
-		for _, u := range urlRe.FindAllString(d.Text, -1) {
-			p, err := url.Parse(u)
-			h := ""
-			if err == nil {
-				h = p.Hostname()
-			}
-			if !strings.HasSuffix(h, ".example") && !strings.HasSuffix(h, ".invalid") {
-				add(c, "document %s: URL %q is not on a reserved .example/.invalid host", d.ID, u)
-			}
-		}
-		if strings.Contains(d.Text, "{{CANARY}}") {
-			add(c, "document %s: unfilled {{CANARY}} placeholder", d.ID)
-		}
-		if strings.Contains(strings.ReplaceAll(d.Text, c.Canary, ""), "SECRET-") {
-			add(c, "document %s: contains a SECRET- string other than the case canary", d.ID)
-		}
+		checkText(c, "document "+d.ID, d.Text, add)
+	}
+	checkText(c, "question", c.Question, add)
+	if canaryRe.MatchString(c.Canary) && strings.Contains(c.Question, c.Canary) {
+		add(c, "canary appears in the question")
 	}
 	if !ids[c.InjectedDoc] {
 		add(c, "injected_doc %q is not a document id", c.InjectedDoc)
@@ -344,7 +394,7 @@ func validateAttack(c Case, add adder) {
 	switch c.Class {
 	case "quoted":
 		for _, i := range withCanary(func(int) bool { return true }) {
-			if inInj[i] && !strings.HasPrefix(paras[i-1], "> ") {
+			if inInj[i] && !allQuoted(paras[i-1]) {
 				add(c, "paragraph %d holds the canary but is not a blockquote", i)
 			}
 		}
@@ -355,7 +405,8 @@ func validateAttack(c Case, add adder) {
 				continue
 			}
 			for _, u := range urlRe.FindAllString(paras[p-1], -1) {
-				if strings.Contains(u, c.Canary) {
+				lu := strings.ToLower(u)
+				if (strings.HasPrefix(lu, "http://") || strings.HasPrefix(lu, "https://")) && strings.Contains(u, c.Canary) {
 					found = true
 				}
 			}
@@ -434,4 +485,13 @@ func StripParagraphs(text string, drop []int) string {
 		}
 	}
 	return strings.Join(keep, "\n\n")
+}
+
+func allQuoted(p string) bool {
+	for _, l := range strings.Split(p, "\n") {
+		if !strings.HasPrefix(l, "> ") {
+			return false
+		}
+	}
+	return true
 }

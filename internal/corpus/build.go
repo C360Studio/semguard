@@ -35,7 +35,7 @@ func Assemble(drafts map[string]Draft, existing map[string]string, newCanary fun
 		used[c] = true
 	}
 	var out []Case
-	for _, class := range Classes {
+	for _, class := range classes {
 		d, ok := drafts[class]
 		if !ok {
 			continue
@@ -60,8 +60,9 @@ func Assemble(drafts map[string]Draft, existing map[string]string, newCanary fun
 			for i, doc := range dc.Documents {
 				docs[i] = Document{ID: doc.ID, Text: strings.ReplaceAll(doc.Text, "{{CANARY}}", canary)}
 			}
+			// shortcut: v0 has one task, read the task id from the draft when a second task lands
 			c := Case{
-				ID: id, Class: class, Task: "score-compare", Question: dc.Question, Documents: docs,
+				ID: id, Class: class, Task: "score-compare", Question: strings.ReplaceAll(dc.Question, "{{CANARY}}", canary), Documents: docs,
 				InjectedDoc: dc.InjectedDoc, InjectedParagraphs: dc.InjectedParagraphs,
 				Canary: canary, Ask: asks[class],
 			}
@@ -102,8 +103,10 @@ type BuildResult struct {
 }
 
 // Build reads dir/draft/*.json, writes dir/cases.json and dir/corpus.lock.json.
-// Canaries already in dir/cases.json are reused by id. Nothing is written if validation fails.
-func Build(dir string, newCanary func() (string, error)) (BuildResult, error) {
+// Canaries already in dir/cases.json are reused by id. Nothing is written if validation fails,
+// a draft is missing (unless partial), or an existing case id would be dropped.
+// A partial build writes cases.json but never corpus.lock.json.
+func Build(dir string, newCanary func() (string, error), partial bool) (BuildResult, error) {
 	var res BuildResult
 	tb, err := readBounded(filepath.Join(dir, "tasks.json"))
 	if err != nil {
@@ -111,12 +114,15 @@ func Build(dir string, newCanary func() (string, error)) (BuildResult, error) {
 	}
 	var tf tasksFile
 	if err := decodeStrict(tb, &tf); err != nil {
-		return res, fmt.Errorf("parse tasks.json: %w", err)
+		return res, invalid("parse tasks.json: %v", err)
 	}
 	drafts := map[string]Draft{}
-	for _, class := range Classes {
+	for _, class := range classes {
 		b, err := readBounded(filepath.Join(dir, "draft", class+".json"))
 		if errors.Is(err, os.ErrNotExist) {
+			if !partial {
+				return res, invalid("draft missing for class %s (use -partial to build without it)", class)
+			}
 			res.Warnings = append(res.Warnings, "draft missing for class "+class)
 			continue
 		}
@@ -125,21 +131,23 @@ func Build(dir string, newCanary func() (string, error)) (BuildResult, error) {
 		}
 		var d Draft
 		if err := decodeStrict(b, &d); err != nil {
-			return res, fmt.Errorf("parse draft %s: %w", class, err)
+			return res, invalid("parse draft %s: %v", class, err)
 		}
 		if d.Class != class {
-			return res, fmt.Errorf("draft %s.json declares class %q", class, d.Class)
+			return res, invalid("draft %s.json declares class %q", class, d.Class)
 		}
 		drafts[class] = d
 	}
 	existing := map[string]string{}
+	var existingOrder []string
 	if b, err := readBounded(filepath.Join(dir, "cases.json")); err == nil {
 		var old casesFile
 		if err := decodeStrict(b, &old); err != nil {
-			return res, fmt.Errorf("parse existing cases.json: %w", err)
+			return res, invalid("parse existing cases.json: %v", err)
 		}
 		for _, c := range old.Cases {
 			existing[c.ID] = c.Canary
+			existingOrder = append(existingOrder, c.ID)
 		}
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return res, fmt.Errorf("read existing cases.json: %w", err)
@@ -148,8 +156,21 @@ func Build(dir string, newCanary func() (string, error)) (BuildResult, error) {
 	if err != nil {
 		return res, err
 	}
+	have := map[string]bool{}
+	for _, c := range cases {
+		have[c.ID] = true
+	}
+	var drops []error
+	for _, id := range existingOrder {
+		if !have[id] {
+			drops = append(drops, fmt.Errorf("%s: would drop frozen case %s", id, id))
+		}
+	}
+	if len(drops) > 0 {
+		return res, wrap(errors.Join(drops...))
+	}
 	verr := Validate(cases, tf.Tasks)
-	if len(drafts) == len(Classes) {
+	if len(drafts) == len(classes) {
 		verr = errors.Join(verr, CheckCounts(cases))
 	}
 	if verr != nil {
@@ -161,6 +182,11 @@ func Build(dir string, newCanary func() (string, error)) (BuildResult, error) {
 	}
 	if err := writeAtomic(filepath.Join(dir, "cases.json"), cb); err != nil {
 		return res, err
+	}
+	res.Cases = len(cases)
+	res.SHA256 = hashHex(cb)
+	if partial {
+		return res, nil
 	}
 	lock := Lock{Version: 1}
 	for _, f := range []struct {
@@ -177,8 +203,6 @@ func Build(dir string, newCanary func() (string, error)) (BuildResult, error) {
 	if err := writeAtomic(filepath.Join(dir, "corpus.lock.json"), lb); err != nil {
 		return res, err
 	}
-	res.Cases = len(cases)
-	res.SHA256 = lock.Files[0].SHA256
 	return res, nil
 }
 
@@ -221,6 +245,10 @@ func FileSHA256(path string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	return hashHex(b), nil
+}
+
+func hashHex(b []byte) string {
 	sum := sha256.Sum256(b)
-	return hex.EncodeToString(sum[:]), nil
+	return hex.EncodeToString(sum[:])
 }
