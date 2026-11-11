@@ -1,6 +1,6 @@
 # Reader client, per-task schema, and verify
 
-Approved-by:
+Approved-by: Coby (2026-11-11) sha256:81f9abe76dd7
 
 Track: design (adds `reader` and `verify` specs and the surface milestone 3 exports, #7).
 
