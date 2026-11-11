@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Merge check. Delegates to `ateam review gate` at the release pinned in
-# .agents/ateam.json and .github/workflows/{ci,merge-check}.yml; this wrapper
-# preserves the `task merge:check` and merge-check.yml entrypoint. The binary is
+# .github/workflows/{ci,merge-check}.yml; this wrapper
+# preserves the `task merge:check` entrypoint. The binary is
 # $ATEAM, else ateam on PATH. The gate's three rules:
 #
 #   1. The rules in force on main require every check in ATEAM_REQUIRED_CHECKS

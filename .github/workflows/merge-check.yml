@@ -65,7 +65,8 @@ jobs:
           printf '%s\n' "$out"
           printf '%s\n' "$out" | grep -xE 'awaiting=(true|false)' >> "$GITHUB_OUTPUT"
 
-  # Up-to-date rule, review check and known-flake check (scripts/merge-check.sh).
+  # Up-to-date rule, review check and known-flake check (ateam review gate;
+  # scripts/merge-check.sh is the task merge:check entrypoint).
   # Skipped and renamed on a draft, so a draft head carries no check run named
   # Merge check for GitHub to count as passing (ateam #250).
   merge-check:
@@ -83,9 +84,9 @@ jobs:
       issues: read
       pull-requests: read
     steps:
-      # The base commit, not the pull request: the script and the review policy
-      # it reads must not come from the tree they judge (ateam #140). The pull
-      # request itself is read through the API.
+      # The base commit, not the pull request: the review policy it reads must
+      # not come from the tree it judges (ateam #140). The pull request itself is
+      # read through the API.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event.pull_request.base.sha }}
@@ -108,4 +109,5 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
-        run: "$ATEAM" review gate "$PR_NUMBER"
+        run: |
+          "$ATEAM" review gate "$PR_NUMBER"

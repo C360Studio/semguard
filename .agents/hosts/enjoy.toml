@@ -1,4 +1,4 @@
-# Enjoy host manifest for ateam review request and notify (#295). A gate file:
+# Enjoy host manifest for ateam review request and notify (ateam #295). A gate file:
 # a change here changes what review_launch: agent does, so it needs the owner's
 # gate-change-approved label.
 #
@@ -11,7 +11,7 @@
 # prints an empty return_to and the reviewer has nowhere to report.
 # The reviewer's notify carries ATEAM_HOST=enjoy: a reviewer's shell may lack
 # ENJOY_MCP_ENDPOINT, and on the cli host ateam review notify exits 0 printing
-# nothing, so the notification is silently lost (ateam v0.3.9; PR #252).
+# nothing, so the notification is silently lost (ateam v0.3.9; semsource #252).
 
 [launch]
 tool = "call the Enjoy MCP tool start_conversation with provider {agent}, model {model}, effort {effort} and prompt '{prompt}'; tell the reviewer to finish with ATEAM_HOST=enjoy ateam review notify --record <record file> --return-to {return_to} {pr}"

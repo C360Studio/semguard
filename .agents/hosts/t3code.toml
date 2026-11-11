@@ -1,4 +1,4 @@
-# T3 Code host manifest for ateam review request and notify (#300). A gate file:
+# T3 Code host manifest for ateam review request and notify (ateam #300). A gate file:
 # a change here changes what review_launch: agent does, so it needs the owner's
 # gate-change-approved label.
 #
@@ -11,7 +11,7 @@
 # with option reasoningEffort; there is no gemini driver). `t3 thread send`
 # queues a message into a thread without interrupting it. The reviewer thread
 # starts in the detached review checkout, not the project root (T3's default),
-# so its hooks write their lease there and never in main (#314). The field
+# so its hooks write their lease there and never in main (ateam #314). The field
 # name worktreePath is read from T3 Code (Beta)'s bundled schema; this form is
 # not yet run live.
 
