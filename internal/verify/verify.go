@@ -69,6 +69,12 @@ func (v Violation) Error() string { return v.Message }
 // urlRe matches URLs in output text, stopping at whitespace, closing delimiters, and datamark '^'.
 var urlRe = regexp.MustCompile(`(?i)(?:[a-z][a-z0-9+.-]*://|\bwww\.)[^\s)\]>"'^]+`)
 
+var (
+	rootAllowedKeys  = map[string]bool{"scores": true, "claims": true, "confidence": true}
+	scoreAllowedKeys = map[string]bool{"doc_id": true, "score": true}
+	claimAllowedKeys = map[string]bool{"doc_id": true, "paragraph": true, "claim": true, "quote": true, "quote_sha256": true}
+)
+
 // rawWire is the strict JSON wire structure for score-compare.
 type rawWire struct {
 	Scores     *[]rawScore `json:"scores"`
@@ -111,6 +117,7 @@ func Verify(raw string, docs []Document) (Record, []Violation) {
 		vs = append(vs, AllowedLinks(raw, docs)...)
 		return Record{}, vs
 	}
+	vs = append(vs, checkExactKeys(raw)...)
 
 	if w.Scores == nil {
 		addSchema("missing required field \"scores\"")
@@ -182,6 +189,97 @@ func Verify(raw string, docs []Document) (Record, []Violation) {
 		return Record{}, vs
 	}
 	return rec, nil
+}
+
+// checkExactKeys enforces case-sensitive JSON property names and rejects duplicate object keys
+// at the root, scores[], and claims[] levels (since encoding/json matches struct tags case-insensitively).
+func checkExactKeys(raw string) []Violation {
+	var vs []Violation
+	rootFields, err := parseObjectFields([]byte(raw))
+	if err != nil {
+		return nil
+	}
+	seenRoot := make(map[string]bool, len(rootFields))
+	for _, f := range rootFields {
+		if !rootAllowedKeys[f.key] {
+			vs = append(vs, Violation{Kind: KindSchema, Message: fmt.Sprintf("unknown field %q", f.key)})
+			continue
+		}
+		if seenRoot[f.key] {
+			vs = append(vs, Violation{Kind: KindSchema, Message: fmt.Sprintf("duplicate field %q", f.key)})
+		}
+		seenRoot[f.key] = true
+		switch f.key {
+		case "scores":
+			var elems []json.RawMessage
+			if err := json.Unmarshal(f.val, &elems); err == nil {
+				for i, el := range elems {
+					vs = append(vs, checkSubObjectKeys(fmt.Sprintf("scores[%d]", i), el, scoreAllowedKeys)...)
+				}
+			}
+		case "claims":
+			var elems []json.RawMessage
+			if err := json.Unmarshal(f.val, &elems); err == nil {
+				for i, el := range elems {
+					vs = append(vs, checkSubObjectKeys(fmt.Sprintf("claims[%d]", i), el, claimAllowedKeys)...)
+				}
+			}
+		}
+	}
+	return vs
+}
+
+func checkSubObjectKeys(label string, raw json.RawMessage, allowed map[string]bool) []Violation {
+	var vs []Violation
+	fields, err := parseObjectFields(raw)
+	if err != nil {
+		return nil
+	}
+	seen := make(map[string]bool, len(fields))
+	for _, f := range fields {
+		if !allowed[f.key] {
+			vs = append(vs, Violation{Kind: KindSchema, Message: fmt.Sprintf("%s: unknown field %q", label, f.key)})
+			continue
+		}
+		if seen[f.key] {
+			vs = append(vs, Violation{Kind: KindSchema, Message: fmt.Sprintf("%s: duplicate field %q", label, f.key)})
+		}
+		seen[f.key] = true
+	}
+	return vs
+}
+
+type rawField struct {
+	key string
+	val json.RawMessage
+}
+
+func parseObjectFields(b []byte) ([]rawField, error) {
+	dec := json.NewDecoder(bytes.NewReader(b))
+	tok, err := dec.Token()
+	if err != nil {
+		return nil, err
+	}
+	if d, ok := tok.(json.Delim); !ok || d != '{' {
+		return nil, fmt.Errorf("not an object")
+	}
+	var fields []rawField
+	for dec.More() {
+		kt, err := dec.Token()
+		if err != nil {
+			return nil, err
+		}
+		key, ok := kt.(string)
+		if !ok {
+			return nil, fmt.Errorf("non-string key")
+		}
+		var val json.RawMessage
+		if err := dec.Decode(&val); err != nil {
+			return nil, err
+		}
+		fields = append(fields, rawField{key: key, val: val})
+	}
+	return fields, nil
 }
 
 func verifyClaim(idx int, c rawClaim, docMap map[string]Document) (Claim, []Violation) {

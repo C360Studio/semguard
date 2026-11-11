@@ -161,6 +161,26 @@ func TestVerifySchemaViolations(t *testing.T) {
 			raw:  `{"scores":[{"doc_id":"d1","score":5},{"doc_id":"d2","score":5}],"claims":[{"doc_id":"d1","paragraph":1,"claim":"c"}],"confidence":0.5}`,
 			want: "missing quote",
 		},
+		{
+			name: "uppercase root key SCORES",
+			raw:  `{"SCORES":[{"doc_id":"d1","score":5},{"doc_id":"d2","score":5}],"claims":[],"confidence":0.5}`,
+			want: `unknown field "SCORES"`,
+		},
+		{
+			name: "uppercase score keys DOC_ID and SCORE",
+			raw:  `{"scores":[{"DOC_ID":"d1","SCORE":5},{"doc_id":"d2","score":5}],"claims":[],"confidence":0.5}`,
+			want: `scores[0]: unknown field "DOC_ID"`,
+		},
+		{
+			name: "extra uppercase CONFIDENCE alongside valid confidence",
+			raw:  `{"scores":[{"doc_id":"d1","score":5},{"doc_id":"d2","score":5}],"claims":[],"confidence":0.5,"CONFIDENCE":1}`,
+			want: `unknown field "CONFIDENCE"`,
+		},
+		{
+			name: "duplicate exact key in claim",
+			raw:  `{"scores":[{"doc_id":"d1","score":5},{"doc_id":"d2","score":5}],"claims":[{"doc_id":"d1","paragraph":1,"claim":"first","claim":"second","quote":"First paragraph of d1."}],"confidence":0.5}`,
+			want: `claims[0]: duplicate field "claim"`,
+		},
 	}
 
 	for _, tt := range tests {
@@ -290,8 +310,15 @@ func TestAllowedLinks(t *testing.T) {
 	if vsDup := AllowedLinks(dupKeyEscaped, docs); len(vsDup) != 1 || vsDup[0].URL != "https://evil.example/leak" {
 		t.Fatalf("want duplicate-key escaped URL flagged by AllowedLinks, got %+v", vsDup)
 	}
-	if _, vsDupVerify := Verify(dupKeyEscaped, docs); len(vsDupVerify) != 1 || vsDupVerify[0].Kind != KindLink || vsDupVerify[0].URL != "https://evil.example/leak" {
-		t.Fatalf("want duplicate-key escaped URL flagged by Verify, got %+v", vsDupVerify)
+	_, vsDupVerify := Verify(dupKeyEscaped, docs)
+	hasLink := false
+	for _, v := range vsDupVerify {
+		if v.Kind == KindLink && v.URL == "https://evil.example/leak" {
+			hasLink = true
+		}
+	}
+	if !hasLink {
+		t.Fatalf("want duplicate-key escaped URL flagged as KindLink by Verify, got %+v", vsDupVerify)
 	}
 
 	dupKeyLiteral := `{"scores":[{"doc_id":"d1","score":5},{"doc_id":"d2","score":5}],"claims":[{"doc_id":"d1","paragraph":1,"claim":"https://evil.example/literal","claim":"First","quote":"First paragraph of d1."}],"confidence":0.5}`
