@@ -1,7 +1,6 @@
 # Tasks
 
-- [ ] 1. Owner approves proposal.md and design.md, (Open Question 1 was ruled on 2026-11-10).
-  Hold: OPEN-Q proposal awaits owner approval
+- [x] 1. Owner approves proposal.md and design.md, (Open Question 1 was ruled on 2026-11-10).
 - [ ] 2. `internal/corpus`: case types, `Load(dir)` with lock verification, `Paragraphs(text)`, and the structural
   validator. Premise: design Decisions 1, 2, and 5. Check: one test per scenario, citing it with `//aip:verifies`.
 - [ ] 3. Canary tool: a one-shot run writes the canaries, then they are frozen. Premise: Decision 3. Check: the

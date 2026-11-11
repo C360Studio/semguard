@@ -1,6 +1,6 @@
 # Corpus v0
 
-Approved-by:
+Approved-by: Coby (2026-11-10) sha256:2b83edfdcec1
 
 Track: design (adds the first `corpus` spec requirements).
 
