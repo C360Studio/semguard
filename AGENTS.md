@@ -25,6 +25,9 @@ wiring, stores, and any UI stay out; the lab fakes the pipeline.
 - One LLM client: an OpenAI-compatible chat endpoint (vendor direct or a proxy). No provider framework, no new scoring
   engine. The reader has no tools, by design. Its task is a parameter: each case family names a task, and each task has
   one output schema in `eval/schemas/<task>.json`.
+- Decision models are measured through a running semselect service and its lockfile (Noul and Choice over
+  `/v1/decisions`), never a second runtime. Milestone 1 measures the audit stage with a decision model and a small
+  chat model side by side; milestone 2 measures the gate with three sequence classifiers plus one semselect row.
 - Preserve pinned runtime, model revision, SHA-256, and license attribution. Base images by digest; models by
   repository, revision, filename, size, SHA-256, license. A model, tokenizer, quantization, prompt, or corpus change
   requires a rerun and a revised results record. A results file records model, endpoint host, hardware, and corpus
