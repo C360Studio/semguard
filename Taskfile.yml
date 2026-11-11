@@ -1,6 +1,14 @@
 version: '3'
 dotenv: ['.env']
 
+vars:
+  # The pin lives in .agents/ateam.json; doctor fails when the binary that runs is another release. It installs into
+  # the MAIN checkout's gitignored .tools/bin so every linked worktree shares it; scripts/ateam finds it.
+  ATEAM_VERSION:
+    sh: jq -r .ateam_version .agents/ateam.json
+  ATEAM_BIN_DIR:
+    sh: echo "$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")/.tools/bin"
+
 tasks:
   default:
     cmds: [task --list]
@@ -25,24 +33,30 @@ tasks:
   corpus:validate:
     desc: Verify the corpus lock and validate every case
     cmds: [go run ./internal/corpus/cmd/corpustool validate]
+  tools:ateam:
+    desc: Install the pinned ateam into the main checkout's .tools/bin (skips when already at the pin)
+    status:
+      - '"{{.ATEAM_BIN_DIR}}/ateam" version 2>/dev/null | grep -q "ateam {{.ATEAM_VERSION}} "'
+    cmds:
+      - GOBIN="{{.ATEAM_BIN_DIR}}" GOTOOLCHAIN=auto go install github.com/c360studio/ateam/cmd/ateam@{{.ATEAM_VERSION}}
   ateam:doctor:
     desc: ateam parity, hooks, and MCP budget check (no mutation)
-    cmds: [ateam doctor --check]
+    cmds: [scripts/ateam doctor --check]
   spec:check:
     desc: Strict OpenSpec validation and hold parsing
-    cmds: [ateam state spec-check]
+    cmds: [scripts/ateam state spec-check]
   spec:queue:
     desc: In-flight OpenSpec changes and their holds
-    cmds: [ateam state spec-queue]
+    cmds: [scripts/ateam state spec-queue]
   test:spec:
     desc: Test-to-spec citations on tests changed since the base
-    cmds: ['ateam test-spec --base "${TEST_SPEC_BASE:-origin/main}"']
+    cmds: ['scripts/ateam test-spec --base "${TEST_SPEC_BASE:-origin/main}"']
   mutate:check:
     desc: Non-destructive mutation check via go test -overlay; -- -pkg ... -test ... -file ... -mutant ...
-    cmds: ['ateam mutate {{.CLI_ARGS}}']
+    cmds: ['scripts/ateam mutate {{.CLI_ARGS}}']
   merge:check:
     desc: ateam review gate for PR <n>; -- <n>. Reads GitHub, so not in verify
-    cmds: ['scripts/merge-check.sh {{.CLI_ARGS}}']
+    cmds: ['ATEAM="${ATEAM:-scripts/ateam}" scripts/merge-check.sh {{.CLI_ARGS}}']
   verify:
     desc: Every local gate, cheapest first
     cmds:

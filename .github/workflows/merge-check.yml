@@ -51,7 +51,10 @@ jobs:
       - name: Install pinned ateam
         env:
           GOTOOLCHAIN: auto
-        run: GOBIN="$RUNNER_TEMP" go install github.com/c360studio/ateam/cmd/ateam@v0.4.0
+        # The pin is read from the base checkout, like the review policy. A base from before
+        # .agents/ateam.json existed falls back to the release it pinned then.
+        # shortcut: v0.4.0 fallback, drop once main carries .agents/ateam.json (#19).
+        run: GOBIN="$RUNNER_TEMP" go install github.com/c360studio/ateam/cmd/ateam@"$(jq -r .ateam_version .agents/ateam.json 2>/dev/null || echo v0.4.0)"
 
       - name: Is the pull request awaiting its review record
         id: probe
@@ -99,7 +102,10 @@ jobs:
       - name: Install pinned ateam
         env:
           GOTOOLCHAIN: auto
-        run: GOBIN="$RUNNER_TEMP" go install github.com/c360studio/ateam/cmd/ateam@v0.4.0
+        # The pin is read from the base checkout, like the review policy. A base from before
+        # .agents/ateam.json existed falls back to the release it pinned then.
+        # shortcut: v0.4.0 fallback, drop once main carries .agents/ateam.json (#19).
+        run: GOBIN="$RUNNER_TEMP" go install github.com/c360studio/ateam/cmd/ateam@"$(jq -r .ateam_version .agents/ateam.json 2>/dev/null || echo v0.4.0)"
 
       - name: Check the up-to-date rule, the review and its strength, and known flakes
         env:

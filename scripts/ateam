@@ -1,0 +1,18 @@
+#!/bin/sh
+# Run the ateam release pinned in .agents/ateam.json. Hooks, MCP, and the Taskfile call this.
+#
+# `task tools:ateam` installs the pin into the main checkout's .tools/bin, which every linked worktree shares. Order:
+# the main checkout's install, this worktree's, then ateam on PATH. When the fallback runs the wrong release,
+# `ateam doctor` fails task verify on the pin. Hooks have a 10 ms budget, so the main checkout comes from the
+# worktree's .git file, not from a forked git.
+root=$(dirname "$0")/..
+main=$root
+if [ -f "$root/.git" ]; then
+	read -r gitdir <"$root/.git"
+	gitdir=${gitdir#gitdir: }
+	main=${gitdir%/.git/worktrees/*}
+fi
+for bin in "$main/.tools/bin/ateam" "$root/.tools/bin/ateam"; do
+	[ -x "$bin" ] && exec "$bin" "$@"
+done
+exec ateam "$@"

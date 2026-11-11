@@ -2,5 +2,5 @@ model_context_window = 500000
 model_auto_compact_token_limit = 450000
 
 [mcp_servers.ateam]
-command = "ateam"
+command = "scripts/ateam"
 args = ["mcp"]
