@@ -1,2 +1,7 @@
-override qwen3:14b bdbd181c33f2
-social qwen3:14b bdbd181c33f2
+article gemini-4-argon (antigravity)
+exfil qwen3:14b bdbd181c33f2 + gemini-4-argon (antigravity)
+fragmented gemini-4-argon (antigravity)
+override gemini-4-argon (antigravity)
+quoted gemini-4-argon (antigravity)
+rank gemini-4-argon (antigravity)
+social gemini-4-argon (antigravity)

@@ -115,7 +115,7 @@ func TestLoadLockMismatch(t *testing.T) {
 	}
 }
 
-// spec: openspec/changes/corpus-v0/specs/corpus/spec.md#Requirement: Control twins
+// spec: openspec/specs/corpus/spec.md#Requirement: Control twins
 func TestBuildDerivesControls(t *testing.T) {
 	dir := t.TempDir()
 	writeDrafts(t, dir, []string{"override", "quoted"}, 1)
@@ -161,7 +161,7 @@ func TestBuildDerivesControls(t *testing.T) {
 	}
 }
 
-// spec: openspec/changes/corpus-v0/specs/corpus/spec.md#Requirement: Frozen case file pinned by hash
+// spec: openspec/specs/corpus/spec.md#Requirement: Frozen case file pinned by hash
 func TestBuildReusesCanaries(t *testing.T) {
 	dir := t.TempDir()
 	writeDrafts(t, dir, []string{"override"}, 2)
@@ -200,7 +200,7 @@ func TestBuildReusesCanaries(t *testing.T) {
 	}
 }
 
-// spec: openspec/changes/corpus-v0/specs/corpus/spec.md#Requirement: Case structure
+// spec: openspec/specs/corpus/spec.md#Requirement: Case structure
 func TestBuildRejectsInvalidAndWritesNothing(t *testing.T) {
 	dir := t.TempDir()
 	writeDrafts(t, dir, []string{"exfil"}, 1)
@@ -221,7 +221,7 @@ func TestBuildRejectsInvalidAndWritesNothing(t *testing.T) {
 	}
 }
 
-// spec: openspec/changes/corpus-v0/specs/corpus/spec.md#Requirement: Frozen case file pinned by hash
+// spec: openspec/specs/corpus/spec.md#Requirement: Frozen case file pinned by hash
 func TestBuildMissingDraftNeedsPartial(t *testing.T) {
 	dir := t.TempDir()
 	writeDrafts(t, dir, []string{"override"}, 1)
@@ -238,7 +238,7 @@ func TestBuildMissingDraftNeedsPartial(t *testing.T) {
 	}
 }
 
-// spec: openspec/changes/corpus-v0/specs/corpus/spec.md#Requirement: Frozen case file pinned by hash
+// spec: openspec/specs/corpus/spec.md#Requirement: Frozen case file pinned by hash
 func TestBuildPartialWritesNoLock(t *testing.T) {
 	dir := t.TempDir()
 	writeDrafts(t, dir, []string{"override"}, 1)
@@ -250,7 +250,7 @@ func TestBuildPartialWritesNoLock(t *testing.T) {
 	}
 }
 
-// spec: openspec/changes/corpus-v0/specs/corpus/spec.md#Requirement: Frozen case file pinned by hash
+// spec: openspec/specs/corpus/spec.md#Requirement: Frozen case file pinned by hash
 func TestBuildRefusesToDropFrozenCases(t *testing.T) {
 	for _, partial := range []bool{false, true} {
 		t.Run(fmt.Sprint("partial=", partial), func(t *testing.T) {
@@ -275,7 +275,7 @@ func TestBuildRefusesToDropFrozenCases(t *testing.T) {
 	}
 }
 
-// spec: openspec/changes/corpus-v0/specs/corpus/spec.md#Requirement: Case structure
+// spec: openspec/specs/corpus/spec.md#Requirement: Case structure
 func TestBuildNeverLeavesPlaceholderOrCanaryInQuestion(t *testing.T) {
 	dir := t.TempDir()
 	writeDrafts(t, dir, []string{"override"}, 1)
@@ -294,7 +294,7 @@ func TestBuildNeverLeavesPlaceholderOrCanaryInQuestion(t *testing.T) {
 	}
 }
 
-// spec: openspec/changes/corpus-v0/specs/corpus/spec.md#Requirement: Frozen case file pinned by hash
+// spec: openspec/specs/corpus/spec.md#Requirement: Frozen case file pinned by hash
 func TestLoadRejectsLockVersion(t *testing.T) {
 	dir := buildFull(t)
 	p := filepath.Join(dir, "corpus.lock.json")
@@ -310,7 +310,7 @@ func TestLoadRejectsLockVersion(t *testing.T) {
 	}
 }
 
-// spec: openspec/changes/corpus-v0/specs/corpus/spec.md#Requirement: Frozen case file pinned by hash
+// spec: openspec/specs/corpus/spec.md#Requirement: Frozen case file pinned by hash
 func TestLoadWithHashReturnsLockedHash(t *testing.T) {
 	dir := buildFull(t)
 	_, _, sum, err := LoadWithHash(dir)

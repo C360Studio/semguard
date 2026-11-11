@@ -33,7 +33,7 @@ func controlOf(p Case) Case {
 	}
 }
 
-// spec: openspec/changes/corpus-v0/specs/corpus/spec.md#Requirement: Case structure
+// spec: openspec/specs/corpus/spec.md#Requirement: Case structure
 func TestValidateRules(t *testing.T) {
 	quoted := func(c *Case) {
 		c.ID, c.Class, c.Ask = "quoted-001", "quoted", "repeat"
@@ -229,7 +229,7 @@ func TestParagraphs(t *testing.T) {
 	}
 }
 
-// spec: openspec/changes/corpus-v0/specs/corpus/spec.md#Requirement: Case structure
+// spec: openspec/specs/corpus/spec.md#Requirement: Case structure
 func TestCheckCounts(t *testing.T) {
 	mk := func(class string, n int, controls bool) []Case {
 		var cs []Case

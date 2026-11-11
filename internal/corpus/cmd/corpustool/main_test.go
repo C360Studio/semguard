@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-// spec: openspec/changes/corpus-v0/specs/corpus/spec.md#Requirement: Frozen case file pinned by hash
+// spec: openspec/specs/corpus/spec.md#Requirement: Frozen case file pinned by hash
 func TestRunExitCodes(t *testing.T) {
 	empty := t.TempDir()
 	corrupt := t.TempDir()
