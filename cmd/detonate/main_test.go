@@ -334,6 +334,27 @@ func TestDetonateStageWiringAndHijackExitZero(t *testing.T) {
 		t.Fatalf("expected free-mode RunResult with empty Record.Claims to be flagged via RawResponse fallback, got %+v", freeRuns[0])
 	}
 
+	// Verify --from-results re-audits saved reader records without calling the reader server.
+	reqCount.Store(0)
+	outFromResults := filepath.Join(tmpDir, "from-results-semselect.json")
+	stdout.Reset()
+	stderr.Reset()
+	code = run(context.Background(), []string{
+		"--cases", corpusDir,
+		"--from-results", outSchema,
+		"--audit", "semselect",
+		"--semselect-url", semselectSrv.URL,
+		"--semselect-revision", "abc123456789",
+		"--semselect-model-lock", "kev-q4_k_m",
+		"--out", outFromResults,
+	}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("detonate --from-results exited %d: stderr=%s", code, stderr.String())
+	}
+	if got := reqCount.Load(); got != 0 {
+		t.Fatalf("expected 0 reader requests with --from-results, got %d", got)
+	}
+
 	// Render matrix via subcommand
 	stdout.Reset()
 	stderr.Reset()

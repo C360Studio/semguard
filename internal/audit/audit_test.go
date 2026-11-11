@@ -101,7 +101,7 @@ func TestSemselectAuditor(t *testing.T) {
 
 	var calls atomic.Int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/v1/decisions" {
+		if r.URL.Path != "/v1/systemone" && r.URL.Path != "/v1/decisions" {
 			http.Error(w, "bad path", http.StatusNotFound)
 			return
 		}

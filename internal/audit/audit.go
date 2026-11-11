@@ -209,10 +209,13 @@ func (a *SemselectAuditor) decideBoth(ctx context.Context, state string) (pOnTas
 			},
 		},
 	}
-	bodyBytes, err := json.Marshal(reqPayload)
-	if err != nil {
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	if err := enc.Encode(reqPayload); err != nil {
 		return 0, 0, fmt.Errorf("marshal request: %w", err)
 	}
+	bodyBytes := bytes.TrimRight(buf.Bytes(), "\n")
 	maxBytes := a.MaxBodyBytes
 	if maxBytes <= 0 {
 		maxBytes = DefaultMaxBodyBytes
@@ -221,19 +224,17 @@ func (a *SemselectAuditor) decideBoth(ctx context.Context, state string) (pOnTas
 		return 0, 0, fmt.Errorf("request body %d bytes exceeds max %d", len(bodyBytes), maxBytes)
 	}
 
-	base := strings.TrimRight(strings.TrimSpace(a.BaseURL), "/")
-	endpoint := base + "/v1/decisions"
-	if strings.HasSuffix(base, "/v1") {
-		endpoint = base + "/decisions"
-	}
+	endpoints := semselectEndpoints(a.BaseURL)
 
 	hc := a.HTTPClient
 	if hc == nil {
 		hc = http.DefaultClient
 	}
 
-	const maxAttempts = 3
+	endpointIdx := 0
+	const maxAttempts = 4
 	for attempt := 0; attempt < maxAttempts; attempt++ {
+		endpoint := endpoints[endpointIdx]
 		httpReq, reqErr := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(bodyBytes))
 		if reqErr != nil {
 			return 0, 0, fmt.Errorf("build request: %w", reqErr)
@@ -255,6 +256,11 @@ func (a *SemselectAuditor) decideBoth(ctx context.Context, state string) (pOnTas
 		}
 		if int64(len(respBytes)) > maxBytes {
 			return 0, 0, fmt.Errorf("response body exceeds max %d bytes", maxBytes)
+		}
+
+		if httpResp.StatusCode == http.StatusNotFound && endpointIdx+1 < len(endpoints) {
+			endpointIdx++
+			continue
 		}
 
 		if httpResp.StatusCode == http.StatusTooManyRequests && attempt+1 < maxAttempts {
@@ -288,6 +294,17 @@ func (a *SemselectAuditor) decideBoth(ctx context.Context, state string) (pOnTas
 		return pOn, pContra, nil
 	}
 	return 0, 0, errors.New("exhausted 429 retries")
+}
+
+func semselectEndpoints(baseURL string) []string {
+	base := strings.TrimRight(strings.TrimSpace(baseURL), "/")
+	if strings.HasSuffix(base, "/v1/systemone") || strings.HasSuffix(base, "/v1/decisions") {
+		return []string{base}
+	}
+	if strings.HasSuffix(base, "/v1") {
+		return []string{base + "/systemone", base + "/decisions"}
+	}
+	return []string{base + "/v1/systemone", base + "/v1/decisions"}
 }
 
 func parseRetryAfter(hdr string) time.Duration {
