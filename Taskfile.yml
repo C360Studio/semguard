@@ -33,6 +33,12 @@ tasks:
   corpus:validate:
     desc: Verify the corpus lock and validate every case
     cmds: [go run ./internal/corpus/cmd/corpustool validate]
+  detonate:
+    desc: Run the detonation corpus against the configured reader endpoint; -- --frame off|on|datamark|framing --verify free|schema --out docs/evidence/<run>.json
+    cmds: ['go run ./cmd/detonate {{.CLI_ARGS}}']
+  matrix:
+    desc: Render docs/results.md from result JSON files; -- --out docs/results.md docs/evidence/*.json
+    cmds: ['go run ./cmd/detonate matrix {{.CLI_ARGS}}']
   tools:ateam:
     desc: Install the pinned ateam into the main checkout's .tools/bin (skips when already at the pin)
     status:

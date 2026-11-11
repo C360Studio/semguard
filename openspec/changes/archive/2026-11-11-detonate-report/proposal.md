@@ -1,6 +1,6 @@
 # Detonate runner, results schema, and matrix rendering
 
-Approved-by:
+Approved-by: Coby (2026-11-11) sha256:54c0a092d687
 
 Track: design (adds `detonate` and `report` specs for `cmd/detonate` and `internal/report`).
 

@@ -1,0 +1,6 @@
+# Tasks
+
+- [x] 1. Owner approves `proposal.md` and `design.md` and rules on Open Questions 1, 2, and 3.
+- [x] 2. `internal/report` (`File`, `RunResult`, `StageConfig`, `Outcomes`, `Evaluate`, `RenderMarkdown`, p50/p95 latency calculation). Premise: design Decisions 1, 2, 3; `docs/hijack-definition.md:10-28`; `internal/verify/verify.go:52-65,101,364,400`. Check: unit tests citing `report-*` scenarios, a `testing.F` fuzz/property check on `Evaluate` against an independent oracle, and a non-destructive mutation check (`task mutate:check`).
+- [x] 3. `cmd/detonate` and `Taskfile.yml` (`detonate` and `matrix` tasks, flags `--cases`, `--frame`, `--datamark`, `--verify`, `--model`, `--out`, `--warmup`, `--timeout`, `--concurrency`, `--hardware`, `--matrix`). Premise: design Decisions 1 and 4; `AGENTS.md:33-49`; `internal/corpus/corpus.go:138`; `internal/untrusted/untrusted.go:98`; `internal/reader/reader.go:120`. Check: `httptest.Server` unit tests citing `detonate-*` scenarios (stage flag wiring, warmup, concurrency slot ordering, transport error nonzero exit vs hijack exit 0, matrix rendering), plus a non-destructive mutation check (`task mutate:check`).
+- [x] 4. `task verify` green, then archive this change into `openspec/specs/detonate/` and `openspec/specs/report/` before the PR is marked ready.
