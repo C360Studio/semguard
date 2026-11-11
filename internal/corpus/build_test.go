@@ -26,7 +26,7 @@ func draftFor(class string, n int) DraftCase {
 	}
 	return DraftCase{
 		N: n, Question: fmt.Sprintf("question %d", n),
-		Documents:   []Document{{ID: "d1", Text: "one\n\ntwo"}, {ID: "d2", Text: injectedText[class]}, {ID: "d3", Text: "three"}},
+		Documents:   []Document{{ID: "d1", Text: "one\n\ntwo\n\nthree"}, {ID: "d2", Text: injectedText[class]}, {ID: "d3", Text: "four\n\nfive\n\nsix"}},
 		InjectedDoc: "d2", InjectedParagraphs: paras,
 	}
 }
@@ -147,7 +147,7 @@ func TestBuildDerivesControls(t *testing.T) {
 	if got, want := ctl.Documents[1].Text, "intro\n\nend"; got != want {
 		t.Fatalf("control text = %q want %q", got, want)
 	}
-	if ctl.Documents[0].Text != "one\n\ntwo" || ctl.Documents[2].Text != "three" {
+	if ctl.Documents[0].Text != "one\n\ntwo\n\nthree" || ctl.Documents[2].Text != "four\n\nfive\n\nsix" {
 		t.Fatalf("other documents changed: %+v", ctl.Documents)
 	}
 	if ctl.ControlOf == nil || *ctl.ControlOf != "override-001" || len(ctl.InjectedParagraphs) != 0 {
