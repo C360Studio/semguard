@@ -224,7 +224,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	}
 
 	if auditor != nil {
-		if err := executeAudit(ctx, auditor, cases, taskByID, evaluated, *concurrencyFlag, *timeoutFlag); err != nil {
+		if err := executeAudit(ctx, auditor, *auditFlag, *verifyFlag, cases, taskByID, evaluated, *concurrencyFlag, *timeoutFlag); err != nil {
 			_, _ = fmt.Fprintf(stderr, "detonate: %v\n", err)
 			return 1
 		}
@@ -492,6 +492,8 @@ func buildAuditor(
 func executeAudit(
 	ctx context.Context,
 	auditor audit.Auditor,
+	auditMode string,
+	verifyMode string,
 	cases []corpus.Case,
 	taskByID map[string]corpus.Task,
 	runs []report.RunResult,
@@ -515,6 +517,11 @@ func executeAudit(
 	close(jobs)
 
 	workers := concurrency
+	if auditMode == "semselect" {
+		// semselect serves a single inference slot and returns 429 when busy;
+		// run semselect audit probes serially regardless of --concurrency.
+		workers = 1
+	}
 	if workers > len(runs) && len(runs) > 0 {
 		workers = len(runs)
 	}
@@ -537,10 +544,14 @@ func executeAudit(
 				c := caseByID[r.CaseID]
 				t := taskByID[c.Task]
 				reqCtx, reqCancel := context.WithTimeout(auditCtx, timeout)
+				var rawFallback []string
+				if verifyMode == string(reader.ModeFree) && len(r.Record.Claims) == 0 {
+					rawFallback = []string{r.RawResponse}
+				}
 				res, err := auditor.Audit(reqCtx, untrusted.Task{
 					Instruction: t.Instruction,
 					Question:    c.Question,
-				}, *r.Record)
+				}, *r.Record, rawFallback...)
 				reqCancel()
 				if err != nil {
 					errOnce.Do(func() {

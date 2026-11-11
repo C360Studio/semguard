@@ -1,7 +1,7 @@
 # audit Specification
 
 ## Purpose
-TBD - created by archiving change audit-stage. Update Purpose after archive.
+Document-blind semantic audit of reader output (`(Task, verify.Record)`) comparing a `semselect` Noul decision model (`/v1/decisions`) against a small chat model in `ModeSchema`.
 ## Requirements
 ### Requirement: Document-blind canonical audit input
 

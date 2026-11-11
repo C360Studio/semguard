@@ -294,7 +294,7 @@ func TestRenderMarkdownAndFileRoundTrip(t *testing.T) {
 		Stages:                StageConfig{Datamark: true, Framing: true, Verify: "schema", Audit: "semselect"},
 		AuditMeta: &AuditMeta{
 			Mode:              "semselect",
-			EndpointHost:      "http://127.0.0.1:8090",
+			EndpointHost:      "http://127.0.0.1:8084",
 			SemselectRevision: "deadbeef12345678",
 			SemselectModel:    "kev-q4_k_m",
 			Threshold:         0.5,
@@ -308,6 +308,16 @@ func TestRenderMarkdownAndFileRoundTrip(t *testing.T) {
 				DurationMs: 150,
 				Audit:      &audit.Result{Label: audit.LabelFlag, Score: 0.91, Reason: audit.ReasonContradicts, DurationMs: 18},
 				Outcomes:   Outcomes{Hijacked: true, H1: true, AuditFlagged: true},
+			},
+			{
+				// B1+H1 run rejected by verify before reaching audit (Audit == nil):
+				// must count in Hijack Matrix (2/2) but NOT in Audit Stage Comparison's denominator (1/1).
+				CaseID:     "override-002",
+				Class:      "override",
+				Task:       "score-compare",
+				DurationMs: 150,
+				Audit:      nil,
+				Outcomes:   Outcomes{Hijacked: true, H1: true, B1: true},
 			},
 			{
 				CaseID:     "quoted-001",
@@ -342,14 +352,13 @@ func TestRenderMarkdownAndFileRoundTrip(t *testing.T) {
 		"frame=off, verify=free",
 		"frame=on (dm+fr), verify=schema, audit=semselect",
 		"1/1 (H1:1)",
-		"1/1 (H1:1, AC:1)",
+		"2/2 (H1:2, B1:1, AC:1)",
 		"0/1 (F1:1)",
 		"0/1 (B2:1, AF:1)",
 		"120 / 240",
 		"150 / 300",
 		"## Audit Stage Comparison",
-		"semselect (kev-q4_k_m, rev:deadbeef1234)",
-		"18 / 22",
+		"| `model-alpha` | frame=on (dm+fr), verify=schema, audit=semselect | `semselect (kev-q4_k_m, rev:deadbeef1234)` | 1/1 | 0/0 | 0/0 | 0/0 | 0/0 | 1/1 | 1/1 | 0/0 | 18 / 22 |",
 	} {
 		if !strings.Contains(md, want) {
 			t.Errorf("RenderMarkdown missing %q in:\n%s", want, md)
