@@ -1,7 +1,6 @@
 # Tasks
 
-- [ ] 1. Owner approves proposal.md and design.md.
-  Hold: OPEN-Q proposal awaits owner approval
+- [x] 1. Owner approves proposal.md and design.md.
 - [ ] 2. `.agents/ateam.json` pin; CI and merge-check install lines read it. Premise: `ci.yml:41`,
   `merge-check.yml:54,102`; Decision 1. Check: CI green, and the `go install` log names v0.4.1.
 - [ ] 3. Take the v0.4.1 text of the three contracts. Premise: Decision 5. Check: `diff` against the v0.4.1 release

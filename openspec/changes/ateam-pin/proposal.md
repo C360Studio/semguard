@@ -1,6 +1,6 @@
 # Pinned ateam v0.4.1
 
-Approved-by:
+Approved-by: Coby (2026-11-11) sha256:d8b001cd824d
 
 Track: design (touches gate files: CI workflows, hook configs, agent contracts; adds the first `harness` requirement).
 
