@@ -1,0 +1,113 @@
+name: Merge check
+
+# Its own workflow and required check, apart from CI (ateam #255): the merge check
+# reads PR state (the review record, the reviewed-by: line, open flake issues),
+# so it reruns on edited, which is how the reviewer's description edit reaches
+# it, without rerunning Verify. pull_request, not pull_request_target, so the
+# pull request that adds or changes this file runs it.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, edited]
+
+# One run per pull request at a time, queued, never cancelled: a cancelled
+# Merge check would sit beside the passing one at the same head (ateam #87), and
+# the queued latest event reads the forge after every earlier run finished.
+concurrency:
+  group: merge-check-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  # The awaiting probe (ateam #262, #359): reads the pull request through the API
+  # with the ateam release from the base commit, as the merge check does, and
+  # answers awaiting=true only for a code pull request with no reviewed-by: line
+  # and no successful Merge check already at its head, the one pass a skip could
+  # leave standing.
+  awaiting:
+    name: Merge check probe
+    if: ${{ !github.event.pull_request.draft }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
+      # The head's Merge check check run (ateam #359).
+      checks: read
+    outputs:
+      awaiting: ${{ steps.probe.outputs.awaiting }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          persist-credentials: false
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+
+      - name: Install pinned ateam
+        env:
+          GOTOOLCHAIN: auto
+        run: GOBIN="$RUNNER_TEMP" go install github.com/c360studio/ateam/cmd/ateam@v0.4.0
+
+      - name: Is the pull request awaiting its review record
+        id: probe
+        env:
+          ATEAM: ${{ runner.temp }}/ateam
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          out=$("$ATEAM" review gate --awaiting "$PR_NUMBER")
+          printf '%s\n' "$out"
+          printf '%s\n' "$out" | grep -xE 'awaiting=(true|false)' >> "$GITHUB_OUTPUT"
+
+  # Up-to-date rule, review check and known-flake check (ateam review gate;
+  # scripts/merge-check.sh is the task merge:check entrypoint).
+  # Skipped and renamed on a draft, so a draft head carries no check run named
+  # Merge check for GitHub to count as passing (ateam #250).
+  merge-check:
+    # Also skipped and renamed while the probe finds a code pull request with no
+    # reviewed-by: line and no passing Merge check at its head (ateam #262, #359):
+    # it is not yet judgeable, so the required context stays absent instead of
+    # failing. A failed probe leaves no answer, so the full check runs.
+    needs: awaiting
+    name: ${{ github.event.pull_request.draft && 'Merge check (draft, skipped)' || needs.awaiting.outputs.awaiting == 'true' && 'Merge check (awaiting review record, skipped)' || 'Merge check' }}
+    if: ${{ always() && !github.event.pull_request.draft && needs.awaiting.outputs.awaiting != 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
+    steps:
+      # The base commit, not the pull request: the review policy it reads must
+      # not come from the tree it judges (ateam #140). The pull request itself is
+      # read through the API.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          persist-credentials: false
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+
+      - name: Install pinned ateam
+        env:
+          GOTOOLCHAIN: auto
+        run: GOBIN="$RUNNER_TEMP" go install github.com/c360studio/ateam/cmd/ateam@v0.4.0
+
+      - name: Check the up-to-date rule, the review and its strength, and known flakes
+        env:
+          ATEAM: ${{ runner.temp }}/ateam
+          # Every check the main ruleset must require, so dropping one fails here.
+          ATEAM_REQUIRED_CHECKS: Required,Merge check
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          "$ATEAM" review gate "$PR_NUMBER"

@@ -1,0 +1,23 @@
+# T3 Code host manifest for ateam review request and notify (ateam #300). A gate file:
+# a change here changes what review_launch: agent does, so it needs the owner's
+# gate-change-approved label.
+#
+# T3 Code gives agents inside a thread the t3-code MCP tool t3_thread_launch,
+# whose modelSelection carries the effort option, so the first review turn runs
+# at the eligible effort (mcp/toolkits/project/tools.ts:124 @ 6577c6b6). The t3
+# CLI's `thread start` takes no effort and starts at the model's default, which
+# the gate can reject. Launch is tool text: T3's provider instance ids are not
+# ateam's agent names (claude is claudeAgent with option effort, codex is codex
+# with option reasoningEffort; there is no gemini driver). `t3 thread send`
+# queues a message into a thread without interrupting it. The reviewer thread
+# starts in the detached review checkout, not the project root (T3's default),
+# so its hooks write their lease there and never in main (ateam #314). The field
+# name worktreePath is read from T3 Code (Beta)'s bundled schema; this form is
+# not yet run live.
+
+[launch]
+tool = "in the main checkout (the parent of git rev-parse --path-format=absolute --git-common-dir), run git worktree add --detach .worktrees/{agent}-review-pr-{pr} {sha}; then call the T3 Code MCP tool t3_thread_launch with workspaceStrategy {type: existing_worktree, worktreePath: <that checkout's absolute path>}, title 'review PR {pr}', message '{prompt} at {sha}; when your record is posted, run ateam review notify --record <record file> --return-to {return_to} {pr}', and modelSelection {instanceId: <claudeAgent for claude, codex for codex; T3 has no gemini driver>, model: {model}, options: [{id: <effort for claude, reasoningEffort for codex>, value: {effort}}]}; omit projectId to use this thread's project"
+
+# The fixed message is appended as the last argument, never substituted.
+[notify]
+command = ["t3", "thread", "send", "{return_to}"]

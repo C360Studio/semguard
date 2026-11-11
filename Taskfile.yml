@@ -42,7 +42,7 @@ tasks:
     cmds: ['ateam mutate {{.CLI_ARGS}}']
   merge:check:
     desc: ateam review gate for PR <n>; -- <n>. Reads GitHub, so not in verify
-    cmds: ['ateam review gate {{.CLI_ARGS}}']
+    cmds: ['scripts/merge-check.sh {{.CLI_ARGS}}']
   verify:
     desc: Every local gate, cheapest first
     cmds:
