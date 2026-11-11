@@ -1,1 +1,2 @@
+override qwen3:14b bdbd181c33f2
 social qwen3:14b bdbd181c33f2
