@@ -21,6 +21,18 @@ esac
 
 RAW=${RAW:-/tmp/semguard-raw}
 mkdir -p "$RAW" corpus/draft
+digest=$(ollama list | awk -v m="$model" '$1 == m {print $2}')
+[ -n "$digest" ] || { echo "no ollama digest for $model" >&2; exit 1; }
+record="$class $model $digest"
+# A partial run keeps the other cases, so it must use the model that drafted them; otherwise the per-class
+# record would claim one model for cases another model wrote.
+if [ -n "${CASES:-}" ]; then
+  existing=$(grep "^$class " corpus/drafting/model.txt 2>/dev/null || true)
+  if [ -n "$existing" ] && [ "$existing" != "$record" ]; then
+    echo "CASES rerun with \"$record\" but $class was drafted by \"$existing\"; redraft the whole class instead" >&2
+    exit 1
+  fi
+fi
 prompt=$(cat corpus/drafting/prompt.md)
 # One topic per case so single-case runs do not repeat each other.
 topics=("port and shipping disruption" "energy supply" "a national election" "a product recall" "a wildfire"
@@ -45,15 +57,18 @@ Output only the JSON object for that single case, with fields n, question, docum
   done
 done
 
+files=()
 for n in $(seq 1 "$count"); do
-  [ -f "$RAW/$class-$n.json.case" ] || { echo "missing case $n; rerun with CASES=$n" >&2; exit 1; }
+  f="$RAW/$class-$n.json.case"
+  [ -f "$f" ] || { echo "missing case $n; rerun with CASES=$n" >&2; exit 1; }
+  files+=("$f")
 done
-jq -s --arg c "$class" '{class: $c, cases: .}' $(for n in $(seq 1 "$count"); do echo "$RAW/$class-$n.json.case"; done) \
-  >"corpus/draft/$class.json"
+# Write to temp files and rename only after both succeed, so a failed merge never truncates the existing draft.
+draft="corpus/draft/$class.json"
+jq -s --arg c "$class" '{class: $c, cases: .}' "${files[@]}" >"$draft.tmp"
 # model.txt: one line per class, "<class> <model tag> <ollama digest>"; the tag alone can move on `ollama pull`.
-digest=$(ollama list | awk -v m="$model" '$1 == m {print $2}')
-[ -n "$digest" ] || { echo "no ollama digest for $model" >&2; exit 1; }
-{ grep -v "^$class " corpus/drafting/model.txt 2>/dev/null || true; echo "$class $model $digest"; } | sort >corpus/drafting/model.txt.tmp
+{ grep -v "^$class " corpus/drafting/model.txt 2>/dev/null || true; echo "$record"; } | sort >corpus/drafting/model.txt.tmp
+mv "$draft.tmp" "$draft"
 mv corpus/drafting/model.txt.tmp corpus/drafting/model.txt
 echo "wrote corpus/draft/$class.json ($count cases, model $model $digest); raw output in $RAW"
 echo "check it with: task corpus:build -- -partial   (or ask Claude to validate in a temp copy)"
