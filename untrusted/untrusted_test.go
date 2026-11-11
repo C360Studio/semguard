@@ -202,7 +202,7 @@ func TestFrameCap(t *testing.T) {
 //
 //aip:verifies frame-over-cap
 func TestFrameCorpus(t *testing.T) {
-	cases, tasks, err := corpus.Load("../../corpus")
+	cases, tasks, err := corpus.Load("../corpus")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -221,4 +221,143 @@ func TestFrameCorpus(t *testing.T) {
 			}
 		}
 	}
+}
+
+//aip:verifies segment-paragraphs-and-offsets
+func TestSegment(t *testing.T) {
+	raw := "Alpha one.\n\nBeta two\nwith newline.\n\nGamma three."
+	got := Segment(raw)
+	wantTexts := corpus.Paragraphs(raw)
+	if len(got) != len(wantTexts) {
+		t.Fatalf("len(Segment) = %d, want %d", len(got), len(wantTexts))
+	}
+	for i, p := range got {
+		if p.Index != i+1 {
+			t.Fatalf("paragraph %d Index = %d, want %d", i, p.Index, i+1)
+		}
+		if p.Text != wantTexts[i] {
+			t.Fatalf("paragraph %d Text = %q, want %q", i, p.Text, wantTexts[i])
+		}
+		if raw[p.Start:p.End] != p.Text {
+			t.Fatalf("paragraph %d slice raw[%d:%d] = %q, want %q", i, p.Start, p.End, raw[p.Start:p.End], p.Text)
+		}
+	}
+}
+
+//aip:verifies strip-allows-datamark-and-maps-offsets
+func TestStripAndOffsetMap(t *testing.T) {
+	// Combine zero-width space (\u200b), BOM (\ufeff), CRLF, standalone CR, C0 control (\x00),
+	// caret (^), and nested marker spoofing ("<<^report" and "<</report>>").
+	orig := "Hello\u200b^ world\r\n\r\nSecond\x00 <<^report id=d9>> para <</report>> end\rThird."
+	clean, om := Strip(orig)
+
+	wantClean := "Hello world\n\nSecond  id=d9>> para >> end\nThird."
+	if clean != wantClean {
+		t.Fatalf("Strip(%q) = %q, want %q", orig, clean, wantClean)
+	}
+
+	// Stripped text must always pass Datamark and Frame without error.
+	if _, err := Datamark([]Document{{ID: "d1", Text: clean}}); err != nil {
+		t.Fatalf("Datamark after Strip failed: %v", err)
+	}
+	if _, err := Frame(task, []Document{{ID: "d1", Text: clean}}, Options{Datamark: true, Framing: true}); err != nil {
+		t.Fatalf("Frame after Strip failed: %v", err)
+	}
+
+	// Every byte in clean must map back to the exact byte in orig (or '\r' for a normalized standalone '\r').
+	for i := 0; i < len(clean); i++ {
+		srcIdx := om.OriginalOffset(i)
+		if srcIdx < 0 || srcIdx >= len(orig) {
+			t.Fatalf("clean[%d] OriginalOffset = %d out of range 0..%d", i, srcIdx, len(orig))
+		}
+		origByte := orig[srcIdx]
+		if clean[i] == '\n' && origByte == '\r' {
+			continue
+		}
+		if origByte != clean[i] {
+			t.Fatalf("clean[%d]=%q mapped to orig[%d]=%q", i, clean[i], srcIdx, origByte)
+		}
+	}
+	if gotEnd := om.OriginalOffset(len(clean)); gotEnd != len(orig) {
+		t.Fatalf("OriginalOffset(len(clean)) = %d, want %d", gotEnd, len(orig))
+	}
+
+	// Verify composition of Segment on cleaned text with OffsetMap.Span back into orig.
+	segs := Segment(clean)
+	if len(segs) != 2 {
+		t.Fatalf("len(Segment(clean)) = %d, want 2", len(segs))
+	}
+	s0, e0 := om.Span(segs[0].Start, segs[0].End)
+	if gotOrigSpan := orig[s0:e0]; gotOrigSpan != "Hello\u200b^ world" {
+		t.Fatalf("orig[%d:%d] = %q, want %q", s0, e0, gotOrigSpan, "Hello\u200b^ world")
+	}
+
+	// Regression for H1: 64K formed markers ("<<\u200breport") and nested markers ("<<<<reportreport")
+	// must strip to empty in a single O(n) pass with exact O(1) extra allocations (out + offsets + string).
+	const copies = 64 << 10
+	adversarial := strings.Repeat("<<\u200breport", copies)
+	allocs := testing.AllocsPerRun(5, func() {
+		got, gotMap := Strip(adversarial)
+		if got != "" || gotMap.OriginalOffset(0) != len(adversarial) {
+			t.Fatalf("Strip(64K formed markers) = (%q, %d), want empty and len=%d", got, gotMap.OriginalOffset(0), len(adversarial))
+		}
+	})
+	if allocs > 3 {
+		t.Fatalf("Strip(64K formed markers) allocated %.1f times per run, want <= 3 (single-pass O(n))", allocs)
+	}
+}
+
+//aip:verifies segment-paragraphs-and-offsets
+//aip:verifies strip-allows-datamark-and-maps-offsets
+func FuzzSegmentAndStrip(f *testing.F) {
+	f.Add("First\r\n\r\nSecond^para\u200bwith <<report and <</report>>\x00end")
+	f.Add("<<^report\n\n<</\u200breport>>")
+	f.Add("plain single paragraph")
+	f.Fuzz(func(t *testing.T, raw string) {
+		clean, om := Strip(raw)
+
+		// Law 1: Strip output is always accepted by Datamark and Frame (when within MaxBytes).
+		d := Document{ID: "d1", Text: clean}
+		if _, err := Datamark([]Document{d}); err != nil {
+			t.Fatalf("Datamark rejected Strip output %q (from %q): %v", clean, raw, err)
+		}
+
+		// Law 2: Strip is idempotent (Strip(clean) == clean).
+		clean2, _ := Strip(clean)
+		if clean2 != clean {
+			t.Fatalf("Strip not idempotent: Strip(%q) = %q", clean, clean2)
+		}
+
+		// Law 3: Every byte i in clean maps to a strictly increasing index om.OriginalOffset(i) in raw
+		// where raw[origIdx] == clean[i] (or '\r' when clean[i] == '\n').
+		prev := -1
+		for i := 0; i < len(clean); i++ {
+			origIdx := om.OriginalOffset(i)
+			if origIdx <= prev || origIdx >= len(raw) {
+				t.Fatalf("non-monotonic or out-of-bounds offset at %d: %d (prev=%d, len=%d)", i, origIdx, prev, len(raw))
+			}
+			prev = origIdx
+			if clean[i] == '\n' && raw[origIdx] == '\r' {
+				continue
+			}
+			if raw[origIdx] != clean[i] {
+				t.Fatalf("byte mismatch at clean[%d]=%q vs raw[%d]=%q", i, clean[i], origIdx, raw[origIdx])
+			}
+		}
+		if om.OriginalOffset(len(clean)) != len(raw) {
+			t.Fatalf("sentinel offset = %d, want %d", om.OriginalOffset(len(clean)), len(raw))
+		}
+
+		// Law 4: Segment(clean) matches corpus.Paragraphs(clean) and slices clean[Start:End] == Text.
+		segs := Segment(clean)
+		wantParas := corpus.Paragraphs(clean)
+		if len(segs) != len(wantParas) {
+			t.Fatalf("len(Segment) = %d, want %d", len(segs), len(wantParas))
+		}
+		for i, p := range segs {
+			if p.Index != i+1 || p.Text != wantParas[i] || clean[p.Start:p.End] != p.Text {
+				t.Fatalf("Segment[%d] = %+v, want Text=%q", i, p, wantParas[i])
+			}
+		}
+	})
 }

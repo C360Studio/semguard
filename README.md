@@ -48,8 +48,8 @@ attacks. The cases are hand-edited and frozen by hash, so the numbers are a lab 
 | --- | --- |
 | `cmd/detonate` | corpus -> frame -> reader -> verify -> hijack report (milestone 1) |
 | `cmd/guard` | gate service (milestone 2, only if milestone 1 shows a gap) |
-| `internal/untrusted` | segment, strip, datamark, frame (exported in milestone 3) |
-| `internal/verify` | schema validation, claim resolution, link allowlist (exported in milestone 3) |
+| `untrusted` | segment, strip, datamark, frame (exported module package) |
+| `verify` | schema validation, claim resolution, link allowlist (exported module package) |
 | `internal/reader` | the one OpenAI-compatible chat client |
 | `internal/corpus` | case loader, hash verification, canaries |
 | `internal/report` | results schema and `docs/results.md` rendering |

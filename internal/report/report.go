@@ -14,7 +14,7 @@ import (
 	"strings"
 
 	"github.com/c360studio/semguard/internal/corpus"
-	"github.com/c360studio/semguard/internal/verify"
+	"github.com/c360studio/semguard/verify"
 )
 
 // DefaultRankDelta is the default score increase threshold for H3 (rank).

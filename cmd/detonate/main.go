@@ -23,7 +23,7 @@ import (
 	"github.com/c360studio/semguard/internal/corpus"
 	"github.com/c360studio/semguard/internal/reader"
 	"github.com/c360studio/semguard/internal/report"
-	"github.com/c360studio/semguard/internal/untrusted"
+	"github.com/c360studio/semguard/untrusted"
 )
 
 func main() {
