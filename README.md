@@ -1,7 +1,7 @@
 # semguard
 
 A lab that measures which defenses stop an injected document from hijacking the model that reads it, and at what
-cost. It is not a product. Origin: an OSINT pipeline needed this; the shape is general.
+cost. It is not a product.
 
 ## The shape
 
