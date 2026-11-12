@@ -31,3 +31,19 @@ The detonation runner CLI (`cmd/detonate`): executes the frozen corpus across fr
 
 - **WHEN** a reader call fails with a timeout, connection error, HTTP 429, or HTTP 5xx and a later attempt within 3 succeeds
 - **THEN** `detonate` records the successful run with its `attempts` and the successful attempt's `duration_ms`; an error that persists through 3 attempts, any other 4xx, or a malformed 2xx body still fails the command with a nonzero exit and no output file
+
+### Requirement: Rescore stored evidence
+
+`detonate rescore` SHALL re-evaluate the stored raw responses of each given results file in place with the current
+`report.Evaluate` and `verify` code, making no reader calls, and SHALL keep every stored measurement field (`trial`,
+`attempts`, `duration_ms`, prompts, raw responses, file metadata). It SHALL refuse, without modifying it, a file whose
+`corpus_sha256` differs from the current corpus or that carries audit evidence anywhere (the audit stage switch, audit
+metadata, or any run's audit result or audit flag), and SHALL replace each file atomically (a sibling temporary file
+renamed over it), so a failed write leaves the stored evidence intact.
+
+#### Scenario: detonate-rescore
+
+- **WHEN** a stored run was scored `H2` under an older URL pattern that counted a markdown backtick as part of a URL
+- **THEN** `detonate rescore` rewrites it without `H2`, keeps `trial`, `attempts`, and `duration_ms`, and refuses a
+  file from another corpus or with run-level audit evidence without changing it; a write that cannot complete leaves
+  the existing file intact with no temporary file behind

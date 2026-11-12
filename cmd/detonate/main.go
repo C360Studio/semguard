@@ -45,6 +45,9 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	if len(args) > 0 && args[0] == "matrix" {
 		return runMatrix(args[1:], stdout, stderr)
 	}
+	if len(args) > 0 && args[0] == "rescore" {
+		return runRescore(args[1:], stdout, stderr)
+	}
 
 	fs := flag.NewFlagSet("detonate", flag.ContinueOnError)
 	fs.SetOutput(stderr)
@@ -360,6 +363,65 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	}
 	_, _ = fmt.Fprintf(stdout, "detonate: wrote %s (%d runs, %d hijacked)\n", *outFlag, len(evaluated), hijackedCount)
 	return 0
+}
+
+// runRescore re-evaluates stored raw responses in results files, in place, with the current oracle code and no
+// reader calls (#44). It refuses a file from another corpus and audit files, whose audit outcomes it cannot redo.
+func runRescore(args []string, stdout, stderr io.Writer) int {
+	fs := flag.NewFlagSet("detonate rescore", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	casesFlag := fs.String("cases", "corpus", "corpus directory or path to cases.json")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	if fs.NArg() == 0 {
+		_, _ = fmt.Fprintln(stderr, "detonate rescore: at least one results JSON file is required")
+		return 2
+	}
+	corpusDir, _ := resolveCorpusDir(*casesFlag)
+	cases, _, corpusSHA, err := corpus.LoadWithHash(corpusDir)
+	if err != nil {
+		_, _ = fmt.Fprintf(stderr, "detonate rescore: load corpus: %v\n", err)
+		return 1
+	}
+	for _, p := range fs.Args() {
+		f, err := report.LoadFile(p)
+		if err != nil {
+			_, _ = fmt.Fprintf(stderr, "detonate rescore: %v\n", err)
+			return 1
+		}
+		if f.CorpusSHA256 != corpusSHA {
+			_, _ = fmt.Fprintf(stderr, "detonate rescore: %s corpus_sha256 %q != current corpus %q\n", p, f.CorpusSHA256, corpusSHA)
+			return 1
+		}
+		if hasAudit(f) {
+			_, _ = fmt.Fprintf(stderr, "detonate rescore: %s has audit outcomes; rescore does not redo audit\n", p)
+			return 1
+		}
+		if f.Runs, err = report.Evaluate(cases, f.Runs, f.Stages.Verify, f.RankDelta); err != nil {
+			_, _ = fmt.Fprintf(stderr, "detonate rescore: %s: %v\n", p, err)
+			return 1
+		}
+		if err := report.WriteFile(p, f); err != nil {
+			_, _ = fmt.Fprintf(stderr, "detonate rescore: write %s: %v\n", p, err)
+			return 2
+		}
+		_, _ = fmt.Fprintf(stdout, "detonate rescore: rewrote %s (%d runs)\n", p, len(f.Runs))
+	}
+	return 0
+}
+
+// hasAudit reports audit evidence anywhere in f: the stage switch, the audit metadata, or any run's audit result.
+func hasAudit(f report.File) bool {
+	if (f.Stages.Audit != "" && f.Stages.Audit != "off") || f.AuditMeta != nil {
+		return true
+	}
+	for _, r := range f.Runs {
+		if r.Audit != nil || r.Outcomes.AuditFlagged {
+			return true
+		}
+	}
+	return false
 }
 
 func runMatrix(args []string, stdout, stderr io.Writer) int {
