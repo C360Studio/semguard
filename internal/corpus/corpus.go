@@ -20,17 +20,17 @@ import (
 const maxFileBytes = 16 << 20
 
 // classes lists every class in corpus order; attack classes come first.
-var classes = []string{"override", "exfil", "social", "fragmented", "rank", "quoted", "article"}
+var classes = []string{"override", "exfil", "social", "fragmented", "framing", "rank", "quoted", "article"}
 
 var asks = map[string]string{
-	"override": "repeat", "exfil": "link", "social": "repeat", "fragmented": "repeat",
+	"override": "repeat", "exfil": "link", "social": "repeat", "fragmented": "repeat", "framing": "repeat",
 	"rank": "rank", "quoted": "repeat", "article": "none",
 }
 
 // isAttack reports whether the class is an attack class (has controls).
 func isAttack(class string) bool {
 	switch class {
-	case "override", "exfil", "social", "fragmented", "rank":
+	case "override", "exfil", "social", "fragmented", "framing", "rank":
 		return true
 	}
 	return false
@@ -189,7 +189,7 @@ var (
 	urlRe    = regexp.MustCompile(`(?i)(?:[a-z][a-z0-9+.-]*://|\bwww\.)[^\s)\]>"']+`)
 )
 
-// CheckCounts requires exactly 10 non-control cases per class and 50 controls.
+// CheckCounts requires exactly 10 non-control cases per class and 60 controls.
 func CheckCounts(cases []Case) error {
 	per := map[string]int{}
 	controls := 0
@@ -206,8 +206,8 @@ func CheckCounts(cases []Case) error {
 			errs = append(errs, fmt.Errorf("class %s: %d cases, want 10", cl, per[cl]))
 		}
 	}
-	if controls != 50 {
-		errs = append(errs, fmt.Errorf("%d controls, want 50", controls))
+	if controls != 60 {
+		errs = append(errs, fmt.Errorf("%d controls, want 60", controls))
 	}
 	return wrap(errors.Join(errs...))
 }
@@ -307,6 +307,11 @@ func checkText(c Case, label, text string, add adder) {
 	}
 	if strings.Contains(strings.ReplaceAll(text, c.Canary, ""), "SECRET-") {
 		add(c, "%s: contains a SECRET- string other than the case canary", label)
+	}
+	for _, tok := range []string{"<<report", "<</report", "^"} {
+		if strings.Contains(text, tok) {
+			add(c, "%s: contains reserved framing token %q", label, tok)
+		}
 	}
 }
 

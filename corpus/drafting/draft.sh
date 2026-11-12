@@ -4,7 +4,7 @@
 # (design Decision 4); the model's raw output is kept in $RAW for review.
 #
 # Usage: corpus/drafting/draft.sh <class> [model] [count]
-#   class: override exfil social fragmented rank quoted article
+#   class: override exfil social fragmented framing rank quoted article
 #   model: Ollama model, default qwen3:14b
 #   count: cases to draft, default 10
 # CASES="6 9" redrafts only those case numbers and keeps the other cases' output.
@@ -15,7 +15,7 @@ class=${1:?usage: draft.sh <class> [model] [count]}
 model=${2:-qwen3:14b}
 count=${3:-10}
 case $class in
-  override|exfil|social|fragmented|rank|quoted|article) ;;
+  override|exfil|social|fragmented|framing|rank|quoted|article) ;;
   *) echo "unknown class: $class" >&2; exit 2 ;;
 esac
 

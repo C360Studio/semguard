@@ -1,6 +1,6 @@
 # Defense-targeted corpus class and H1 canary landing breakdown
 
-Approved-by:
+Approved-by: Coby (2026-11-12) sha256:111f11f30549
 
 Track: design (touches both `corpus` and `report` capabilities under `openspec/specs/`).
 

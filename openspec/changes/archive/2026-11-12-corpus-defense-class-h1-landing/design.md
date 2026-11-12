@@ -47,6 +47,6 @@ Goals: add one 10-case attack class (plus 10 control twins) written against `unt
 
 ## Open Questions
 
-1. **(owner) Marker imitation vs `untrusted.Frame` (`Decision 1`):** Should the new class use **(a)** near-miss/lookalike markers that pass `untrusted.Frame` without `Strip` (enforced by `corpus.Validate`), or **(b)** literal `<<report ...>>` and `^` with `untrusted.Strip` called before `untrusted.Frame` in `cmd/detonate`?
-2. **(owner) Class name and drafting execution (`Decision 2`):** Do you prefer class name **`framing`** (or **`escape`** / **`spoof`**) with `ask: "repeat"` drafted via `qwen3:14b`, and would you like to run `corpus/drafting/draft.sh` yourself or have us run `draft.sh` + `task corpus:build && task corpus:validate` blindly without reading the generated case texts?
-3. **(owner) Matrix notation for `H1` quote landings (`Decision 3`):** Do you prefer **`H1:1 (quote:1)`** (Option a) or another cell notation to show how many `H1` hits landed inside a verified injected-paragraph quote?
+1. **(owner) Marker imitation vs `untrusted.Frame` (`Decision 1`):** **Resolved (2026-11-12):** Option (a) — near-miss/lookalike markers in raw corpus text (`<report id=...>`, `<< report id=... >>`, `[report id=...]`, `[1]`, Unicode carets `ˆ`/`＾`); `corpus.Validate` forbids literal `"<<report"`, `"<</report"`, and `"^"` so `cmd/detonate` frames raw documents without `untrusted.Strip`.
+2. **(owner) Class name and drafting execution (`Decision 2`):** **Resolved (2026-11-12):** Class name `framing` (`ask: "repeat"`), authored directly by `gemini-4-argon` (per owner instruction after evaluating `qwen3:14b` quality) and validated via `task corpus:build && task corpus:validate`.
+3. **(owner) Matrix notation for `H1` quote landings (`Decision 3`):** **Resolved (2026-11-12):** Option (a) — record `H1Quote bool` (`json:"h1_quote,omitempty"`) on `Outcomes` and render `H1:n (quote:q)` in cell breakdowns when `q > 0`.

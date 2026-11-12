@@ -118,9 +118,9 @@ func TestDetonateStageWiringAndHijackExitZero(t *testing.T) {
 		t.Fatalf("detonate free-off exited %d: stderr=%s", code, stderr.String())
 	}
 
-	// 120 corpus cases + 2 warmup requests = 122 requests; none should have schema response_format, framing, or datamarking.
-	if got := reqCount.Load(); got != 122 {
-		t.Fatalf("request count = %d, want 122", got)
+	// 140 corpus cases + 2 warmup requests = 142 requests; none should have schema response_format, framing, or datamarking.
+	if got := reqCount.Load(); got != 142 {
+		t.Fatalf("request count = %d, want 142", got)
 	}
 	if got := schemaFormatCount.Load(); got != 0 {
 		t.Fatalf("free mode sent schema response_format on %d requests, want 0", got)
@@ -145,8 +145,8 @@ func TestDetonateStageWiringAndHijackExitZero(t *testing.T) {
 	if fFree.FramingSHA256 != "" || fFree.SchemaSHA256 != "" {
 		t.Fatalf("expected empty framing and schema hashes in free-off, got framing=%q schema=%q", fFree.FramingSHA256, fFree.SchemaSHA256)
 	}
-	if len(fFree.Runs) != 120 {
-		t.Fatalf("len(Runs) = %d, want 120", len(fFree.Runs))
+	if len(fFree.Runs) != 140 {
+		t.Fatalf("len(Runs) = %d, want 140", len(fFree.Runs))
 	}
 	var freeH1, freeF1 int
 	for _, r := range fFree.Runs {
@@ -160,9 +160,9 @@ func TestDetonateStageWiringAndHijackExitZero(t *testing.T) {
 			freeF1++
 		}
 	}
-	// 40 attack cases carry canaries in their documents (override, exfil, social, fragmented = 40) and 10 quoted cases carry canaries.
-	if freeH1 != 40 || freeF1 != 10 {
-		t.Fatalf("recorded outcomes in free-off: H1=%d (want 40), F1=%d (want 10)", freeH1, freeF1)
+	// 50 attack cases carry canaries in their documents (override, exfil, social, fragmented, framing = 50) and 10 quoted cases carry canaries.
+	if freeH1 != 50 || freeF1 != 10 {
+		t.Fatalf("recorded outcomes in free-off: H1=%d (want 50), F1=%d (want 10)", freeH1, freeF1)
 	}
 
 	// Run schema + frame=on
@@ -183,17 +183,17 @@ func TestDetonateStageWiringAndHijackExitZero(t *testing.T) {
 		t.Fatalf("detonate schema-on exited %d: stderr=%s", code, stderr.String())
 	}
 
-	if got := reqCount.Load(); got != 120 {
-		t.Fatalf("schema-on request count = %d, want 120", got)
+	if got := reqCount.Load(); got != 140 {
+		t.Fatalf("schema-on request count = %d, want 140", got)
 	}
-	if got := schemaFormatCount.Load(); got != 120 {
-		t.Fatalf("schema-on sent strict json_schema on %d requests, want 120", got)
+	if got := schemaFormatCount.Load(); got != 140 {
+		t.Fatalf("schema-on sent strict json_schema on %d requests, want 140", got)
 	}
-	if got := framedSysCount.Load(); got != 120 {
-		t.Fatalf("schema-on sent framed system prompt on %d requests, want 120", got)
+	if got := framedSysCount.Load(); got != 140 {
+		t.Fatalf("schema-on sent framed system prompt on %d requests, want 140", got)
 	}
-	if got := datamarkedUserCount.Load(); got != 120 {
-		t.Fatalf("schema-on sent datamarked user prompt on %d requests, want 120", got)
+	if got := datamarkedUserCount.Load(); got != 140 {
+		t.Fatalf("schema-on sent datamarked user prompt on %d requests, want 140", got)
 	}
 
 	fSchema, err := report.LoadFile(outSchema)
@@ -218,8 +218,8 @@ func TestDetonateStageWiringAndHijackExitZero(t *testing.T) {
 			schemaH1++
 		}
 	}
-	if schemaH1 != 40 {
-		t.Fatalf("recorded H1 outcomes in schema-on = %d, want 40", schemaH1)
+	if schemaH1 != 50 {
+		t.Fatalf("recorded H1 outcomes in schema-on = %d, want 50", schemaH1)
 	}
 
 	// Run schema + frame=on + audit=semselect
@@ -310,8 +310,8 @@ func TestDetonateStageWiringAndHijackExitZero(t *testing.T) {
 			auditFalseFlags++
 		}
 	}
-	if auditCaught != 40 || auditFalseFlags != 10 {
-		t.Fatalf("auditCaught=%d (want 40), auditFalseFlags=%d (want 10)", auditCaught, auditFalseFlags)
+	if auditCaught != 50 || auditFalseFlags != 10 {
+		t.Fatalf("auditCaught=%d (want 50), auditFalseFlags=%d (want 10)", auditCaught, auditFalseFlags)
 	}
 
 	// Verify free-mode audit passes RawResponse when Record.Claims is empty.

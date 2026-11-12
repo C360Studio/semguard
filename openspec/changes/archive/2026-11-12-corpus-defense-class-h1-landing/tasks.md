@@ -1,0 +1,6 @@
+# Tasks: corpus-defense-class-h1-landing
+
+- [x] 1. Resolve Open Questions 1–3 in `openspec/changes/corpus-defense-class-h1-landing/design.md` and record `Approved-by: Coby (2026-11-12) sha256:111f11f30549` in `openspec/changes/corpus-defense-class-h1-landing/proposal.md`.
+- [x] 2. Update `internal/report/report.go:99-108,281-328,396-454,496-633` and `internal/report/report_test.go` to classify `H1` hits that land solely inside a verified `claims[].quote` resolving to an injected paragraph (`H1Quote`) versus elsewhere, render the distinction in `RenderMarkdown`, and prove branch coverage via `TestEvaluateH1Quote` and `scripts/ateam mutate`.
+- [x] 3. Add the 8th defense-targeted class to `corpus/drafting/prompt.md:56-84`, `corpus/drafting/draft.sh:17-20`, `internal/corpus/corpus.go:23-37,193-213`, and `internal/corpus/build_test.go:12-20,88`, draft the 10 cases (`corpus/drafting/model.txt`), build `corpus/cases.json` and `corpus/corpus.lock.json` (`140` cases), and verify offline with `task corpus:validate` and `task verify`.
+- [x] 4. Archive `openspec/changes/corpus-defense-class-h1-landing/` into `openspec/specs/{corpus,report}/spec.md` and `openspec/changes/archive/`, regenerate `docs/results.md` (and include the new class in the #30 combined rerun), and verify `task verify` green.
