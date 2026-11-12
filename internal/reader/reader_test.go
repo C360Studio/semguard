@@ -246,4 +246,22 @@ func TestTransient(t *testing.T) {
 	if Transient(nil) {
 		t.Error("Transient(nil) = true")
 	}
+
+	// Review of #43: the URL wrapper is not the cause. A bad scheme, a malformed URL, and the caller's own
+	// cancellation are permanent; only 500..599 counts as 5xx.
+	for _, base := range []string{"ftp://example.invalid", "http://%zz"} {
+		if Transient(call(base, context.Background())) {
+			t.Errorf("%s: Transient = true, want false", base)
+		}
+	}
+	canceled, cancelNow := context.WithCancel(context.Background())
+	cancelNow()
+	if Transient(call(srv.URL+"/s503", canceled)) {
+		t.Error("canceled caller context: Transient = true, want false")
+	}
+	for code, want := range map[int]bool{428: false, 429: true, 430: false, 499: false, 500: true, 599: true, 600: false} {
+		if got := Transient(&StatusError{Code: code}); got != want {
+			t.Errorf("StatusError %d: Transient = %v, want %v", code, got, want)
+		}
+	}
 }

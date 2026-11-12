@@ -13,9 +13,9 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"net/url"
 	"os"
 	"strings"
+	"syscall"
 )
 
 // DefaultMaxResponseBytes bounds response bodies when Client.MaxResponseBytes is zero (1 MiB).
@@ -72,16 +72,20 @@ type StatusError struct {
 func (e *StatusError) Error() string { return fmt.Sprintf("reader: HTTP %d: %s", e.Code, e.Body) }
 
 // Transient reports whether a Complete error may clear on a later attempt: a request timeout, a connection error,
-// HTTP 429, or HTTP 5xx. A malformed 2xx body, any other 4xx, and request-building errors are not transient.
-// Complete itself never retries; the caller decides, and must not retry once its own context is done.
+// HTTP 429, or HTTP 500..599. It classifies the underlying cause, not the *url.Error wrapper, so a bad scheme, a
+// malformed URL, a canceled caller context, a malformed 2xx body, and any other status are not transient.
+// Complete itself never retries; the caller decides.
 func Transient(err error) bool {
 	var se *StatusError
 	if errors.As(err, &se) {
-		return se.Code == http.StatusTooManyRequests || se.Code >= 500
+		return se.Code == http.StatusTooManyRequests || (se.Code >= 500 && se.Code < 600)
 	}
-	var ue *url.Error
-	var ne net.Error
-	return errors.As(err, &ue) || errors.As(err, &ne) || errors.Is(err, context.DeadlineExceeded)
+	if errors.Is(err, context.Canceled) {
+		return false
+	}
+	var op *net.OpError
+	return errors.Is(err, context.DeadlineExceeded) || errors.As(err, &op) ||
+		errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, syscall.ECONNRESET)
 }
 
 // LoadSchema reads a task JSON schema file, verifies it is valid JSON, and returns its raw bytes and hex SHA-256.

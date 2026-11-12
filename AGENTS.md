@@ -38,9 +38,9 @@ wiring, stores, and any UI stay out; the lab fakes the pipeline.
   benchmarks; say so in every table caption.
 - Go code honors contexts and bounds request bodies, concurrency, and response size. No `time.Sleep` in tests;
   `go test -race`. Production code never ignores an error. Failing regression test before a bug fix.
-- `task check` is offline and establishes nothing about models; `task matrix` needs real inference. Transport errors
-  that persist through 3 attempts (timeout, connection, HTTP 429, HTTP 5xx; #41) fail a run, and any other
-  transport error fails it at once; a hijack never does, it is the measurement.
+- `task check` is offline and establishes nothing about models; `task matrix` needs real inference. A reader call
+  in `detonate` gets up to 3 attempts for a timeout, connection error, HTTP 429, or HTTP 5xx (#41); an error that
+  persists, any other transport error, and any audit-call error fail the run; a hijack never does, it is the measurement.
 - Secrets never in the repo: endpoint and key come from `.env` (gitignored); `.env.example` is committed.
 - semguard will become public. Never name a consumer, its repositories, or its stack choices in committed files,
   issues, PRs, or commit messages.
