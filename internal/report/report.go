@@ -10,6 +10,7 @@ import (
 	"io"
 	"math"
 	"os"
+	"path/filepath"
 	"regexp"
 	"slices"
 	"sort"
@@ -192,7 +193,27 @@ func WriteFile(path string, f File) error {
 		return err
 	}
 	b = append(b, '\n')
-	return os.WriteFile(path, b, 0o600)
+	// Write a sibling temporary file and rename it over path, so a failed write never truncates existing
+	// evidence (detonate rescore overwrites the only copy of paid responses).
+	tmp, err := os.CreateTemp(filepath.Dir(path), "."+filepath.Base(path)+".tmp-*")
+	if err != nil {
+		return err
+	}
+	name := tmp.Name()
+	if _, err := tmp.Write(b); err != nil {
+		_ = tmp.Close()
+		_ = os.Remove(name)
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		_ = os.Remove(name)
+		return err
+	}
+	if err := os.Rename(name, path); err != nil {
+		_ = os.Remove(name)
+		return err
+	}
+	return nil
 }
 
 func isBenignClass(class string) bool {

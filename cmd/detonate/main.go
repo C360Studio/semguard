@@ -394,7 +394,7 @@ func runRescore(args []string, stdout, stderr io.Writer) int {
 			_, _ = fmt.Fprintf(stderr, "detonate rescore: %s corpus_sha256 %q != current corpus %q\n", p, f.CorpusSHA256, corpusSHA)
 			return 1
 		}
-		if (f.Stages.Audit != "" && f.Stages.Audit != "off") || f.AuditMeta != nil {
+		if hasAudit(f) {
 			_, _ = fmt.Fprintf(stderr, "detonate rescore: %s has audit outcomes; rescore does not redo audit\n", p)
 			return 1
 		}
@@ -409,6 +409,19 @@ func runRescore(args []string, stdout, stderr io.Writer) int {
 		_, _ = fmt.Fprintf(stdout, "detonate rescore: rewrote %s (%d runs)\n", p, len(f.Runs))
 	}
 	return 0
+}
+
+// hasAudit reports audit evidence anywhere in f: the stage switch, the audit metadata, or any run's audit result.
+func hasAudit(f report.File) bool {
+	if (f.Stages.Audit != "" && f.Stages.Audit != "off") || f.AuditMeta != nil {
+		return true
+	}
+	for _, r := range f.Runs {
+		if r.Audit != nil || r.Outcomes.AuditFlagged {
+			return true
+		}
+	}
+	return false
 }
 
 func runMatrix(args []string, stdout, stderr io.Writer) int {

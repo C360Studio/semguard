@@ -2,6 +2,7 @@ package report
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -758,5 +759,40 @@ func TestRenderMarkdownTrials(t *testing.T) {
 	}
 	if strings.Contains(md, "| `model-beta` | frame=off, verify=free | `social-001`") {
 		t.Errorf("single-trial file listed in the by-trial table:\n%s", md)
+	}
+}
+
+// TestWriteFileReplacesAtomically: WriteFile overwrites stored evidence by writing a sibling temporary file and
+// renaming it, so a failed write cannot truncate the only copy of paid responses (#45 review).
+//
+//aip:verifies detonate-rescore
+func TestWriteFileReplacesAtomically(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "e.json")
+	if err := WriteFile(path, File{Version: 1, Model: "old"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := WriteFile(path, File{Version: 1, Model: "new"}); err != nil {
+		t.Fatal(err)
+	}
+	got, err := LoadFile(path)
+	if err != nil || got.Model != "new" {
+		t.Fatalf("after overwrite: model %q, err %v", got.Model, err)
+	}
+	// A write that cannot complete leaves the existing file intact and no temporary file behind.
+	if err := os.Chmod(dir, 0o500); err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.Chmod(dir, 0o700) }()
+	if err := WriteFile(path, File{Version: 1, Model: "lost"}); err == nil {
+		t.Fatal("write into a read-only directory succeeded")
+	}
+	_ = os.Chmod(dir, 0o700)
+	if got, err := LoadFile(path); err != nil || got.Model != "new" {
+		t.Fatalf("existing file damaged by failed write: model %q, err %v", got.Model, err)
+	}
+	entries, _ := os.ReadDir(dir)
+	if len(entries) != 1 {
+		t.Fatalf("leftover files after failed write: %d entries", len(entries))
 	}
 }

@@ -17,6 +17,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/c360studio/semguard/internal/audit"
 	"github.com/c360studio/semguard/internal/corpus"
 	"github.com/c360studio/semguard/internal/report"
 )
@@ -688,6 +689,27 @@ func TestRescoreUsesCurrentRules(t *testing.T) {
 	}
 	if r.Trial != 1 || r.Attempts != 2 || r.DurationMs != 7 || got.Trials != 1 || got.CorpusSHA256 != corpusSHA {
 		t.Fatalf("rescore changed stored measurement fields: %+v / trials=%d", r, got.Trials)
+	}
+
+	// Review of #45: audit evidence on a run (not only in stages/audit_meta) is refused, unmodified.
+	for name, mutate := range map[string]func(*report.RunResult){
+		"run_audit":   func(r *report.RunResult) { r.Audit = &audit.Result{Label: audit.LabelFlag} },
+		"run_flagged": func(r *report.RunResult) { r.Outcomes.AuditFlagged = true },
+	} {
+		g := f
+		g.Runs = []report.RunResult{f.Runs[0]}
+		mutate(&g.Runs[0])
+		pa := filepath.Join(t.TempDir(), name+".json")
+		if err := report.WriteFile(pa, g); err != nil {
+			t.Fatal(err)
+		}
+		before, _ := os.ReadFile(pa)
+		if code := run(context.Background(), []string{"rescore", "--cases", filepath.Join(root, "corpus"), pa}, &stdout, &stderr); code == 0 {
+			t.Fatalf("%s: rescore accepted a file with run-level audit evidence", name)
+		}
+		if after, _ := os.ReadFile(pa); !bytes.Equal(before, after) {
+			t.Fatalf("%s: refused file was modified", name)
+		}
 	}
 
 	// A file from another corpus is refused and left untouched.
