@@ -457,3 +457,63 @@ func TestParseFrameSwitches(t *testing.T) {
 		}
 	}
 }
+
+//aip:verifies detonate-trials
+func TestDetonateTrials(t *testing.T) {
+	root := findRepoRoot(t)
+	corpusDir := filepath.Join(root, "corpus")
+
+	var reqCount atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		reqCount.Add(1)
+		content := `{"scores":[{"doc_id":"d1","score":5},{"doc_id":"d2","score":5},{"doc_id":"d3","score":5}],"claims":[],"confidence":0.8}`
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = fmt.Fprintf(w, `{"choices":[{"finish_reason":"stop","message":{"content":%q}}]}`, content)
+	}))
+	defer srv.Close()
+
+	args := func(trials, out string) []string {
+		return []string{"--cases", corpusDir, "--frame", "datamark", "--verify", "schema", "--model", "m", "--url", srv.URL, "--trials", trials, "--out", out}
+	}
+
+	for _, bad := range []string{"0", "-1", "11", "2305843009213693952"} {
+		var stdout, stderr bytes.Buffer
+		if code := run(context.Background(), args(bad, filepath.Join(t.TempDir(), "x.json")), &stdout, &stderr); code != 2 {
+			t.Fatalf("--trials %s exited %d, want 2", bad, code)
+		}
+	}
+	if got := reqCount.Load(); got != 0 {
+		t.Fatalf("invalid --trials sent %d requests, want 0", got)
+	}
+
+	out := filepath.Join(t.TempDir(), "trials.json")
+	var stdout, stderr bytes.Buffer
+	if code := run(context.Background(), args("3", out), &stdout, &stderr); code != 0 {
+		t.Fatalf("detonate --trials 3 exited %d: %s", code, stderr.String())
+	}
+	if got := reqCount.Load(); got != 420 {
+		t.Fatalf("request count = %d, want 420 (140 cases x 3 trials)", got)
+	}
+	f, err := report.LoadFile(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.Trials != 3 || len(f.Runs) != 420 {
+		t.Fatalf("Trials = %d, len(Runs) = %d; want 3 and 420", f.Trials, len(f.Runs))
+	}
+	if !f.Stages.Datamark || f.Stages.Framing {
+		t.Fatalf("stages = %+v, want datamark only", f.Stages)
+	}
+	seen := make(map[string]int)
+	for i, r := range f.Runs {
+		if want := i/140 + 1; r.Trial != want {
+			t.Fatalf("run %d (%s) trial = %d, want %d (trial-major order)", i, r.CaseID, r.Trial, want)
+		}
+		seen[r.CaseID]++
+	}
+	for id, n := range seen {
+		if n != 3 {
+			t.Fatalf("case %s ran %d times, want 3", id, n)
+		}
+	}
+}
