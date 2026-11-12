@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -214,8 +215,20 @@ func check(d Document) error {
 	return nil
 }
 
-// Datamark wraps each document in <<report id=ID>> ... <</report>> and replaces every whitespace run inside a
-// paragraph with ^. Paragraph breaks (\n\n) stay, so paragraph indices still match the source text.
+// label prefixes each "\n\n" paragraph of text with "[n] ", its 1-based index as Segment and verify count it,
+// after applying mark to the paragraph. The reader cites that n; without it the model has to count, and measured
+// claims were off by one (#28).
+func label(text string, mark func(string) string) string {
+	paras := strings.Split(text, "\n\n")
+	for i, p := range paras {
+		paras[i] = "[" + strconv.Itoa(i+1) + "] " + mark(p)
+	}
+	return strings.Join(paras, "\n\n")
+}
+
+// Datamark wraps each document in <<report id=ID>> ... <</report>>, replaces every whitespace run inside a
+// paragraph with ^, and labels each paragraph "[n] ". Paragraph breaks (\n\n) stay, so labels match the indices
+// verify checks. The label's space cannot come from document text, whose whitespace is all ^.
 func Datamark(docs []Document) (Block, error) {
 	var b strings.Builder
 	for i, d := range docs {
@@ -226,12 +239,7 @@ func Datamark(docs []Document) (Block, error) {
 			b.WriteString("\n\n")
 		}
 		b.WriteString("<<report id=" + d.ID + ">>\n")
-		for j, p := range strings.Split(d.Text, "\n\n") {
-			if j > 0 {
-				b.WriteString("\n\n")
-			}
-			b.WriteString(wsRe.ReplaceAllString(p, "^"))
-		}
+		b.WriteString(label(d.Text, func(p string) string { return wsRe.ReplaceAllString(p, "^") }))
 		b.WriteString("\n<</report>>")
 	}
 	return b.String(), nil
@@ -259,7 +267,7 @@ func Frame(t Task, docs []Document, o Options) (Prompt, error) {
 			if err := check(d); err != nil {
 				return Prompt{}, err
 			}
-			parts[i] = "Document " + d.ID + ":\n" + d.Text
+			parts[i] = "Document " + d.ID + ":\n" + label(d.Text, func(p string) string { return p })
 		}
 		body = strings.Join(parts, "\n\n")
 	}

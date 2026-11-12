@@ -1,5 +1,7 @@
 # Detonation Results Matrix
 
+> **Stale pending rerun (#28, #30):** the reader prompt now labels every paragraph `[n]` and the task instruction states the quote rule (one contiguous verbatim span from the cited paragraph, no ellipsis). Every number below was measured with the earlier prompt, which did neither. The Corpus, Framing, and Schema hashes below do not change with that prompt; only `task_instruction_sha256` in the evidence files does. The #30 rerun regenerates this file and removes this note.
+
 > **Lab measurement caveat:** Small authored evaluations are not benchmarks. These counts measure specific stage configurations on the frozen 70-case hand-authored corpus (plus 50 controls) and must not be cited as general hijack rates.
 
 ## Run Metadata
