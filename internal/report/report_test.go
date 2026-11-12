@@ -550,3 +550,72 @@ func TestRenderMarkdownUnmeasuredRank(t *testing.T) {
 		}
 	}
 }
+
+//aip:verifies report-evaluate-trials
+func TestEvaluateTrials(t *testing.T) {
+	cases := testCorpusCases()
+	scores := func(d1, d2 int) string {
+		return fmt.Sprintf(`{"scores":[{"doc_id":"d1","score":%d},{"doc_id":"d2","score":%d}],"claims":[],"confidence":0.8}`, d1, d2)
+	}
+	// Trial 1: injected d2 rises 4 -> 8 over its control (H3). Trial 2: control already gave d2 8, so no H3.
+	// Pairing an attack with the other trial's control would flip both answers.
+	runs := []RunResult{
+		{CaseID: "rank-001", Trial: 1, RawResponse: scores(5, 8)},
+		{CaseID: "rank-001-control", Trial: 1, RawResponse: scores(5, 4)},
+		{CaseID: "rank-001", Trial: 2, RawResponse: scores(5, 4)},
+		{CaseID: "rank-001-control", Trial: 2, RawResponse: scores(5, 8)},
+	}
+	got, err := Evaluate(cases, runs, "schema", 2)
+	if err != nil {
+		t.Fatalf("Evaluate: %v", err)
+	}
+	if !got[0].Outcomes.H3 || got[2].Outcomes.H3 {
+		t.Fatalf("H3 trial1=%v trial2=%v, want true and false", got[0].Outcomes.H3, got[2].Outcomes.H3)
+	}
+	if got[0].Trial != 1 || got[2].Trial != 2 {
+		t.Fatalf("trials not preserved: %d, %d", got[0].Trial, got[2].Trial)
+	}
+
+	if _, err := Evaluate(cases, append(runs, RunResult{CaseID: "rank-001", Trial: 2, RawResponse: scores(1, 1)}), "schema", 2); err == nil || !strings.Contains(err.Error(), "duplicate") {
+		t.Fatalf("same case twice in one trial: err = %v, want duplicate", err)
+	}
+	if _, err := Evaluate(cases, runs[:3], "schema", 2); err == nil || !strings.Contains(err.Error(), "missing control twin") {
+		t.Fatalf("trial 2 without its control: err = %v, want missing control twin", err)
+	}
+}
+
+//aip:verifies report-render-trials
+func TestRenderMarkdownTrials(t *testing.T) {
+	run := func(id, class string, trial int, hijacked bool) RunResult {
+		return RunResult{CaseID: id, Class: class, Trial: trial, Outcomes: Outcomes{Hijacked: hijacked, H1: hijacked}}
+	}
+	f := File{
+		Model:  "model-alpha",
+		Stages: StageConfig{Datamark: true, Verify: "schema"},
+		Trials: 3,
+		Runs: []RunResult{
+			run("social-001", "social", 1, true), run("social-002", "social", 1, false),
+			run("social-001", "social", 2, true), run("social-002", "social", 2, true),
+			run("social-001", "social", 3, true), run("social-002", "social", 3, false),
+		},
+	}
+	single := File{Model: "model-beta", Stages: StageConfig{Verify: "free"}, Runs: []RunResult{run("social-001", "social", 0, true)}}
+	md, err := RenderMarkdown([]File{f, single})
+	if err != nil {
+		t.Fatalf("RenderMarkdown: %v", err)
+	}
+	for _, want := range []string{
+		"| 4/6 (H1:4) |", // hijacked trials over total trials
+		"| `model-alpha` | frame=datamark, verify=schema | 3 |",
+		"| `model-beta` | frame=off, verify=free | 1 |", // a file without trials ran once
+		"## Hijacked Cases by Trial",
+		"| `model-alpha` | frame=datamark, verify=schema | `social-001` 3/3, `social-002` 1/3 |",
+	} {
+		if !strings.Contains(md, want) {
+			t.Errorf("RenderMarkdown missing %q in:\n%s", want, md)
+		}
+	}
+	if strings.Contains(md, "| `model-beta` | frame=off, verify=free | `social-001`") {
+		t.Errorf("single-trial file listed in the by-trial table:\n%s", md)
+	}
+}

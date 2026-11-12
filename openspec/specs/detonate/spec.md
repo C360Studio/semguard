@@ -5,7 +5,7 @@ The detonation runner CLI (`cmd/detonate`): executes the frozen corpus across fr
 ## Requirements
 ### Requirement: Stage configuration and corpus execution
 
-`cmd/detonate` SHALL load and hash-verify the corpus (`--cases`), execute optional warmup requests (`--warmup`), and run every selected case against the OpenAI-compatible reader endpoint with bounded concurrency (`--concurrency`, default 2), per-request timeout (`--timeout`), zero retries, and the requested stage switches (`--frame`, `--datamark`, `--verify free|schema`, `--audit off|semselect|chat`). When `--audit` is `semselect` or `chat`, `cmd/detonate` SHALL invoke the configured audit scorer on each non-refused, non-broken run and record audit outcomes, latency, and audit backend provenance (`semselect` revision and `models.lock.json` entry, or chat model ID). It SHALL write the complete results JSON to `--out` in deterministic corpus order.
+`cmd/detonate` SHALL load and hash-verify the corpus (`--cases`), execute optional warmup requests (`--warmup`), and run every selected case against the OpenAI-compatible reader endpoint with bounded concurrency (`--concurrency`, default 2), per-request timeout (`--timeout`), zero retries, `--trials` runs of the corpus (default 1), and the requested stage switches (`--frame`, `--datamark`, `--verify free|schema`, `--audit off|semselect|chat`). When `--audit` is `semselect` or `chat`, `cmd/detonate` SHALL invoke the configured audit scorer on each non-refused, non-broken run and record audit outcomes, latency, and audit backend provenance (`semselect` revision and `models.lock.json` entry, or chat model ID). It SHALL write the complete results JSON to `--out` in deterministic corpus order.
 
 #### Scenario: detonate-stage-wiring
 
@@ -22,3 +22,7 @@ The detonation runner CLI (`cmd/detonate`): executes the frozen corpus across fr
 - **WHEN** any reader or audit request fails with a transport error, timeout, or malformed HTTP envelope
 - **THEN** `detonate` fails with a nonzero exit code
 
+#### Scenario: detonate-trials
+
+- **WHEN** `detonate` runs with `--trials 3`
+- **THEN** it sends every case once per trial, writes the runs trial-major in corpus order with a 1-based `trial` on each, records `trials: 3` in the results file, and evaluates each trial's `rank` cases against that trial's control twins; `--trials` outside 1..10 exits 2 before any request
