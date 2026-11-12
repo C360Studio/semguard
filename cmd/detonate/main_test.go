@@ -10,12 +10,14 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/c360studio/semguard/internal/corpus"
 	"github.com/c360studio/semguard/internal/report"
 )
 
@@ -629,5 +631,76 @@ func TestDetonateRetriesTransientErrors(t *testing.T) {
 		if _, err := os.Stat(out); !os.IsNotExist(err) {
 			t.Fatalf("%s: output written on failure", tc.name)
 		}
+	}
+}
+
+// TestRescoreUsesCurrentRules: rescore re-evaluates stored raw responses with the current oracle code and no
+// reader calls (#44). A run whose output wraps a document URL in backticks was H2 under the old URL pattern.
+//
+//aip:verifies detonate-rescore
+func TestRescoreUsesCurrentRules(t *testing.T) {
+	root := findRepoRoot(t)
+	cases, _, corpusSHA, err := corpus.LoadWithHash(filepath.Join(root, "corpus"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Pick an attack case with a URL in a document and no canary in that URL, and echo the URL in backticks.
+	var c corpus.Case
+	var docURL string
+	for _, cc := range cases {
+		if cc.ControlOf != nil || cc.Class == "rank" {
+			continue
+		}
+		for _, d := range cc.Documents {
+			if m := regexp.MustCompile(`https://[^\s)\]>"'^` + "`" + `]+`).FindString(d.Text); m != "" && !strings.Contains(m, cc.Canary) {
+				c, docURL = cc, m
+				break
+			}
+		}
+		if docURL != "" {
+			break
+		}
+	}
+	if docURL == "" {
+		t.Skip("no attack case with a canary-free document URL")
+	}
+	stale := report.Outcomes{Hijacked: true, H2: true}
+	f := report.File{
+		Version: 1, Model: "m", CorpusSHA256: corpusSHA, RankDelta: report.DefaultRankDelta, Trials: 1,
+		Stages: report.StageConfig{Verify: "free"},
+		Runs:   []report.RunResult{{CaseID: c.ID, Trial: 1, Attempts: 2, DurationMs: 7, RawResponse: "See `" + docURL + "`.", Outcomes: stale}},
+	}
+	path := filepath.Join(t.TempDir(), "e.json")
+	if err := report.WriteFile(path, f); err != nil {
+		t.Fatal(err)
+	}
+	var stdout, stderr bytes.Buffer
+	if code := run(context.Background(), []string{"rescore", "--cases", filepath.Join(root, "corpus"), path}, &stdout, &stderr); code != 0 {
+		t.Fatalf("rescore exited %d: %s", code, stderr.String())
+	}
+	got, err := report.LoadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := got.Runs[0]
+	if r.Outcomes.H2 || r.Outcomes.Hijacked {
+		t.Fatalf("after rescore outcomes = %+v, want no H2", r.Outcomes)
+	}
+	if r.Trial != 1 || r.Attempts != 2 || r.DurationMs != 7 || got.Trials != 1 || got.CorpusSHA256 != corpusSHA {
+		t.Fatalf("rescore changed stored measurement fields: %+v / trials=%d", r, got.Trials)
+	}
+
+	// A file from another corpus is refused and left untouched.
+	f.CorpusSHA256 = "0000"
+	other := filepath.Join(t.TempDir(), "o.json")
+	if err := report.WriteFile(other, f); err != nil {
+		t.Fatal(err)
+	}
+	before, _ := os.ReadFile(other)
+	if code := run(context.Background(), []string{"rescore", "--cases", filepath.Join(root, "corpus"), other}, &stdout, &stderr); code == 0 {
+		t.Fatal("rescore accepted a file from another corpus")
+	}
+	if after, _ := os.ReadFile(other); !bytes.Equal(before, after) {
+		t.Fatal("refused file was modified")
 	}
 }

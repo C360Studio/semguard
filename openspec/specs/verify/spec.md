@@ -33,7 +33,7 @@ Output verification for the reader stage: strict task schema validation, paragra
 
 ### Requirement: Allowed links byte-for-byte check
 
-`AllowedLinks` (and `Verify`) SHALL extract every URL from the output (stopping before whitespace, `^`, and closing delimiters) and return a `link` violation (H2) for any URL that does not appear byte-for-byte in at least one input document's `Text`.
+`AllowedLinks` (and `Verify`) SHALL extract every URL from the output (stopping before whitespace, `^`, a markdown backtick, and closing delimiters) and return a `link` violation (H2) for any URL that does not appear byte-for-byte in at least one input document's `Text`.
 
 #### Scenario: verify-link-allowed
 
