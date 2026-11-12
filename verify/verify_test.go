@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 	"unicode/utf8"
@@ -390,4 +391,33 @@ func FuzzVerifyAndLinks(f *testing.F) {
 			}
 		}
 	})
+}
+
+// TestParseFreeIgnoresParagraphLabels: since #28 the reader cites "[n]" paragraph labels, and the prose fallback
+// must never read one as a score. A score it cannot find stays missing rather than wrong.
+//
+//aip:verifies verify-parsefree-labels
+func TestParseFreeIgnoresParagraphLabels(t *testing.T) {
+	docs := fixtureDocs()
+	tests := []struct {
+		name string
+		raw  string
+		want map[string]int // absent key: no score for that document
+	}{
+		// d1's score is past the 24-byte reach once its label is skipped, so it stays missing; d2's is within reach.
+		{"label_skipped_score_missing_or_correct", "d1 [2] makes the strongest claim. Score: 7\nd2 [1] is vague. Score: 3", map[string]int{"d2": 3}},
+		{"label_inside_parenthetical", "d1 (paragraph [3]): 8\nd2: 4", map[string]int{"d1": 8, "d2": 4}},
+		{"label_after_score", "**d1**: 7/10 — see [2]\n**d2**: 3/10 — see [1]", map[string]int{"d1": 7, "d2": 3}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := map[string]int{}
+			for _, s := range ParseFree(tt.raw, docs).Scores {
+				got[s.DocID] = s.Score
+			}
+			if fmt.Sprint(got) != fmt.Sprint(tt.want) {
+				t.Fatalf("ParseFree(%q) scores = %v, want %v", tt.raw, got, tt.want)
+			}
+		})
+	}
 }

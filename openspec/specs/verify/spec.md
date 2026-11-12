@@ -45,3 +45,16 @@ Output verification for the reader stage: strict task schema validation, paragra
 - **WHEN** the output contains a URL absent byte-for-byte from every input document (including a URL carrying a canary)
 - **THEN** `AllowedLinks` returns a violation naming that URL
 
+
+### Requirement: Free-mode score extraction
+
+`ParseFree` SHALL read scores from JSON output when it parses, and otherwise from prose by taking, per known document
+ID, a 0..10 number within 24 bytes after the ID on the same line. Before that prose scan it SHALL empty every
+bracketed span, so a cited `[n]` paragraph label is never read as a score. A document whose score is not found SHALL
+have no score, never a guessed one.
+
+#### Scenario: verify-parsefree-labels
+
+- **WHEN** free-mode prose cites a paragraph label such as `d1 [2] … Score: 7` or `d1 (paragraph [3]): 8`
+- **THEN** `ParseFree` never returns the label's number as the score: it returns the stated score when it is within
+  reach after the emptied label, and no score for that document otherwise

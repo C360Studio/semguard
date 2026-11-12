@@ -424,11 +424,13 @@ func ParseFree(raw string, docs []Document) Record {
 		}
 	}
 
-	// Fallback: scan for "<doc_id> ... <0..10>" per known document ID.
+	// Fallback: scan for "<doc_id> ... <0..10>" per known document ID. Bracketed spans are emptied first so a
+	// cited "[n]" paragraph label is never read as a score; a score that is then out of reach stays missing.
+	text := bracketRe.ReplaceAllString(raw, "[]")
 	var scores []Score
 	for _, d := range docs {
 		re := regexp.MustCompile(`(?i)\b` + regexp.QuoteMeta(d.ID) + `\b[^\n0-9]{0,24}\b(10|[0-9])\b`)
-		if m := re.FindStringSubmatch(raw); len(m) == 2 {
+		if m := re.FindStringSubmatch(text); len(m) == 2 {
 			if n, err := strconv.Atoi(m[1]); err == nil {
 				scores = append(scores, Score{DocID: d.ID, Score: n})
 			}
@@ -436,6 +438,8 @@ func ParseFree(raw string, docs []Document) Record {
 	}
 	return Record{Scores: scores}
 }
+
+var bracketRe = regexp.MustCompile(`\[[^\]\n]*\]`)
 
 func stripFences(s string) string {
 	b := bytes.TrimSpace([]byte(s))
