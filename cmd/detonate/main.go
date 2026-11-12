@@ -59,6 +59,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	warmupFlag := fs.Int("warmup", 0, "number of warmup requests before timing corpus runs")
 	timeoutFlag := fs.Duration("timeout", 60*time.Second, "per-request timeout")
 	concurrencyFlag := fs.Int("concurrency", 2, "worker concurrency (default 2)")
+	trialsFlag := fs.Int("trials", 1, "times to run the corpus; each trial pairs rank cases with that trial's control twins")
 	hardwareFlag := fs.String("hardware", defaultHardware(), "hardware/architecture recorded in results file")
 	rankDeltaFlag := fs.Int("rank-delta", report.DefaultRankDelta, "score delta threshold for H3 (rank)")
 	matrixOutFlag := fs.String("matrix", "", "render Markdown matrix to path from remaining result JSON arguments")
@@ -86,6 +87,10 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	}
 	if *concurrencyFlag < 1 {
 		_, _ = fmt.Fprintf(stderr, "detonate: --concurrency must be >= 1, got %d\n", *concurrencyFlag)
+		return 2
+	}
+	if *trialsFlag < 1 {
+		_, _ = fmt.Fprintf(stderr, "detonate: --trials must be >= 1, got %d\n", *trialsFlag)
 		return 2
 	}
 	if *warmupFlag < 0 {
@@ -176,6 +181,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	var hwName = *hardwareFlag
 	var readerEndpointHost = endpointHost
 	var outRankDelta = *rankDeltaFlag
+	var outTrials = *trialsFlag
 	if strings.TrimSpace(*fromResultsFlag) != "" {
 		baseFile, loadErr := report.LoadFile(*fromResultsFlag)
 		if loadErr != nil {
@@ -214,6 +220,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		readerEndpointHost = baseFile.EndpointHost
 		hwName = baseFile.Hardware
 		outRankDelta = baseFile.RankDelta
+		outTrials = baseFile.Trials
 		if auditMeta != nil && auditMeta.Mode == "chat" && auditMeta.EndpointHost == "" {
 			auditMeta.EndpointHost = readerEndpointHost
 		}
@@ -229,23 +236,25 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 			}
 		}
 
-		rawRuns := make([]report.RunResult, len(cases))
+		// Job j is case j%len(cases) in trial j/len(cases)+1, so runs are written trial-major in corpus order.
+		total := len(cases) * *trialsFlag
+		rawRuns := make([]report.RunResult, total)
 		var firstErr error
 		var errOnce sync.Once
 
 		runCtx, cancel := context.WithCancel(ctx)
 		defer cancel()
 
-		jobs := make(chan int, len(cases))
-		for i := range cases {
-			jobs <- i
+		jobs := make(chan int, total)
+		for j := 0; j < total; j++ {
+			jobs <- j
 		}
 		close(jobs)
 
 		var wg sync.WaitGroup
 		workers := *concurrencyFlag
-		if workers > len(cases) && len(cases) > 0 {
-			workers = len(cases)
+		if workers > total && total > 0 {
+			workers = total
 		}
 		var fshaOnce sync.Once
 		var doneCount int64
@@ -257,7 +266,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 					if runCtx.Err() != nil {
 						return
 					}
-					c := cases[idx]
+					c := cases[idx%len(cases)]
 					t := taskByID[c.Task]
 					rr, fsha, err := executeOne(runCtx, client, c, t, schemaByTask[c.Task], opts, mode, *modelFlag, *timeoutFlag)
 					if err != nil {
@@ -268,10 +277,11 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 						return
 					}
 					fshaOnce.Do(func() { framingSHA = fsha })
+					rr.Trial = idx/len(cases) + 1
 					rawRuns[idx] = rr
 					n := atomic.AddInt64(&doneCount, 1)
-					if n%20 == 0 || int(n) == len(cases) {
-						_, _ = fmt.Fprintf(stderr, "detonate: progress %d/%d (%s, %dms)\n", n, len(cases), c.ID, rr.DurationMs)
+					if n%20 == 0 || int(n) == total {
+						_, _ = fmt.Fprintf(stderr, "detonate: progress %d/%d (%s, %dms)\n", n, total, c.ID, rr.DurationMs)
 					}
 				}
 			}()
@@ -319,6 +329,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		},
 		AuditMeta: auditMeta,
 		RankDelta: outRankDelta,
+		Trials:    outTrials,
 		Runs:      evaluated,
 	}
 
