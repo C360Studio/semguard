@@ -5,13 +5,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/c360studio/semguard/internal/report"
 )
@@ -514,6 +517,117 @@ func TestDetonateTrials(t *testing.T) {
 	for id, n := range seen {
 		if n != 3 {
 			t.Fatalf("case %s ran %d times, want 3", id, n)
+		}
+	}
+}
+
+//aip:verifies detonate-transient-retry detonate-transport-error-exits-nonzero
+func TestDetonateRetriesTransientErrors(t *testing.T) {
+	root := findRepoRoot(t)
+	corpusDir := filepath.Join(root, "corpus")
+	defer func(w time.Duration) { retryWait = w }(retryWait)
+	retryWait = 0
+
+	const okBody = `{"choices":[{"finish_reason":"stop","message":{"content":"{\"scores\":[],\"claims\":[],\"confidence\":0.5}"}}]}`
+	// attempts counts requests per distinct prompt, so each case's attempt number is known without ordering.
+	var mu sync.Mutex
+	attempts := map[string]int{}
+	var total atomic.Int32
+	serve := func(plan func(attempt int, w http.ResponseWriter, r *http.Request)) *httptest.Server {
+		mu.Lock()
+		clear(attempts)
+		mu.Unlock()
+		total.Store(0)
+		return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			b, _ := io.ReadAll(r.Body)
+			total.Add(1)
+			mu.Lock()
+			attempts[string(b)]++
+			n := attempts[string(b)]
+			mu.Unlock()
+			plan(n, w, r)
+		}))
+	}
+	detonate := func(srv *httptest.Server, concurrency, timeout string) (int, string) {
+		out := filepath.Join(t.TempDir(), "r.json")
+		var stdout, stderr bytes.Buffer
+		code := run(context.Background(), []string{"--cases", corpusDir, "--frame", "off", "--verify", "free", "--model", "m",
+			"--url", srv.URL, "--concurrency", concurrency, "--timeout", timeout, "--out", out}, &stdout, &stderr)
+		return code, out
+	}
+
+	// 503, then 429, then success: every case succeeds on its third attempt.
+	srv := serve(func(n int, w http.ResponseWriter, _ *http.Request) {
+		switch n {
+		case 1:
+			w.WriteHeader(http.StatusServiceUnavailable)
+		case 2:
+			w.WriteHeader(http.StatusTooManyRequests)
+		default:
+			_, _ = io.WriteString(w, okBody)
+		}
+	})
+	code, out := detonate(srv, "2", "5s")
+	srv.Close()
+	if code != 0 {
+		t.Fatalf("503 then 429 then ok: exit %d, want 0", code)
+	}
+	f, err := report.LoadFile(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if int(total.Load()) != 3*len(f.Runs) {
+		t.Fatalf("requests = %d, want 3 x %d runs", total.Load(), len(f.Runs))
+	}
+	for _, r := range f.Runs {
+		if r.Attempts != 3 {
+			t.Fatalf("%s: attempts = %d, want 3", r.CaseID, r.Attempts)
+		}
+	}
+
+	// First attempt hits the per-request timeout; the second succeeds. duration_ms is the successful attempt only.
+	srv = serve(func(n int, w http.ResponseWriter, r *http.Request) {
+		if n == 1 {
+			<-r.Context().Done()
+			return
+		}
+		_, _ = io.WriteString(w, okBody)
+	})
+	code, out = detonate(srv, "2", "200ms")
+	srv.Close()
+	if code != 0 {
+		t.Fatalf("timeout then ok: exit %d, want 0", code)
+	}
+	if f, err = report.LoadFile(out); err != nil {
+		t.Fatal(err)
+	}
+	for _, r := range f.Runs {
+		if r.Attempts != 2 || r.DurationMs >= 200 {
+			t.Fatalf("%s: attempts = %d, duration_ms = %d; want 2 and under the 200ms timeout", r.CaseID, r.Attempts, r.DurationMs)
+		}
+	}
+
+	// Errors that persist past 3 attempts, and errors that are not transient, still fail the command.
+	for _, tc := range []struct {
+		name     string
+		plan     func(w http.ResponseWriter)
+		requests int32
+	}{
+		{"persistent_503", func(w http.ResponseWriter) { w.WriteHeader(http.StatusServiceUnavailable) }, 3},
+		{"http_400", func(w http.ResponseWriter) { w.WriteHeader(http.StatusBadRequest) }, 1},
+		{"malformed_200", func(w http.ResponseWriter) { _, _ = io.WriteString(w, "{not json") }, 1},
+	} {
+		srv := serve(func(_ int, w http.ResponseWriter, _ *http.Request) { tc.plan(w) })
+		code, out := detonate(srv, "1", "5s")
+		srv.Close()
+		if code == 0 {
+			t.Fatalf("%s: exit 0, want nonzero", tc.name)
+		}
+		if got := total.Load(); got != tc.requests {
+			t.Fatalf("%s: requests = %d, want %d", tc.name, got, tc.requests)
+		}
+		if _, err := os.Stat(out); !os.IsNotExist(err) {
+			t.Fatalf("%s: output written on failure", tc.name)
 		}
 	}
 }

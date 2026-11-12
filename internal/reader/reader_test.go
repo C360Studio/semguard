@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func checkStrictObjectSchema(t *testing.T, path string, node map[string]any) {
@@ -180,5 +181,69 @@ func TestCompleteBoundedResponseAndErrors(t *testing.T) {
 	cancel()
 	if _, err := c500.Complete(ctx, Request{Model: "m", User: "u"}); err == nil {
 		t.Fatal("canceled context must fail")
+	}
+}
+
+// TestTransient pins which Complete errors a caller may retry: request timeout, connection error, HTTP 429, and
+// HTTP 5xx. A 200 with a malformed body and any other 4xx are not transient.
+//
+//aip:verifies reader-transient-errors
+func TestTransient(t *testing.T) {
+	release := make(chan struct{}) // frees the /hang handler so srv.Close does not wait on it
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/s429/chat/completions":
+			w.WriteHeader(http.StatusTooManyRequests)
+		case "/s500/chat/completions":
+			w.WriteHeader(http.StatusInternalServerError)
+		case "/s503/chat/completions":
+			w.WriteHeader(http.StatusServiceUnavailable)
+		case "/s400/chat/completions":
+			w.WriteHeader(http.StatusBadRequest)
+		case "/s401/chat/completions":
+			w.WriteHeader(http.StatusUnauthorized)
+		case "/s404/chat/completions":
+			w.WriteHeader(http.StatusNotFound)
+		case "/malformed/chat/completions":
+			_, _ = w.Write([]byte("{not json"))
+		case "/hang/chat/completions":
+			select {
+			case <-r.Context().Done():
+			case <-release:
+			}
+		}
+	}))
+	defer srv.Close()
+	defer close(release)
+
+	closed := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+	closedURL := closed.URL
+	closed.Close()
+
+	call := func(base string, ctx context.Context) error {
+		_, err := (&Client{BaseURL: base}).Complete(ctx, Request{Model: "m", User: "u"})
+		if err == nil {
+			t.Fatalf("%s: want an error", base)
+		}
+		return err
+	}
+	for path, want := range map[string]bool{
+		"/s429": true, "/s500": true, "/s503": true,
+		"/s400": false, "/s401": false, "/s404": false, "/malformed": false,
+	} {
+		if got := Transient(call(srv.URL+path, context.Background())); got != want {
+			t.Errorf("%s: Transient = %v, want %v", path, got, want)
+		}
+	}
+	if !Transient(call(closedURL, context.Background())) {
+		t.Error("connection refused: Transient = false, want true")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	defer cancel()
+	if !Transient(call(srv.URL+"/hang", ctx)) {
+		t.Error("request timeout: Transient = false, want true")
+	}
+	if Transient(nil) {
+		t.Error("Transient(nil) = true")
 	}
 }

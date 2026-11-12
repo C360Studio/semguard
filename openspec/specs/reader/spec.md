@@ -27,3 +27,13 @@ The single OpenAI-compatible chat completion client for the reader stage: ctx-ho
 - **WHEN** the endpoint streams a response body exceeding `MaxResponseBytes`
 - **THEN** `Complete` returns an error and does not buffer unbounded bytes
 
+### Requirement: Transient error classification
+
+`Client.Complete` SHALL return a non-2xx response as a `*StatusError` carrying the code, and `Transient` SHALL report
+true only for a request timeout, a connection error, HTTP 429, or HTTP 5xx, so a caller can retry those and nothing
+else. `Complete` itself SHALL make one attempt.
+
+#### Scenario: reader-transient-errors
+
+- **WHEN** `Complete` fails with HTTP 429, 500, or 503, a refused connection, or a request timeout
+- **THEN** `Transient` reports true; for HTTP 400, 401, 404, or a malformed 200 body it reports false

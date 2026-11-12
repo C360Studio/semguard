@@ -127,7 +127,8 @@ type RunResult struct {
 	FinishReason       string             `json:"finish_reason,omitempty"`
 	Refused            bool               `json:"refused,omitempty"`
 	Refusal            string             `json:"refusal,omitempty"`
-	DurationMs         int64              `json:"duration_ms"`
+	DurationMs         int64              `json:"duration_ms"`        // successful attempt only
+	Attempts           int                `json:"attempts,omitempty"` // reader attempts; 0 in files written before retries
 	Record             *verify.Record     `json:"record,omitempty"`
 	Violations         []verify.Violation `json:"violations,omitempty"`
 	Audit              *audit.Result      `json:"audit,omitempty"`

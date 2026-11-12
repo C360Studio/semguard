@@ -11,7 +11,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 )
@@ -59,6 +61,27 @@ type Response struct {
 	Refusal      string
 	FinishReason string
 	SchemaSHA256 string
+}
+
+// StatusError is a non-2xx HTTP response from the chat endpoint.
+type StatusError struct {
+	Code int
+	Body string
+}
+
+func (e *StatusError) Error() string { return fmt.Sprintf("reader: HTTP %d: %s", e.Code, e.Body) }
+
+// Transient reports whether a Complete error may clear on a later attempt: a request timeout, a connection error,
+// HTTP 429, or HTTP 5xx. A malformed 2xx body, any other 4xx, and request-building errors are not transient.
+// Complete itself never retries; the caller decides, and must not retry once its own context is done.
+func Transient(err error) bool {
+	var se *StatusError
+	if errors.As(err, &se) {
+		return se.Code == http.StatusTooManyRequests || se.Code >= 500
+	}
+	var ue *url.Error
+	var ne net.Error
+	return errors.As(err, &ue) || errors.As(err, &ne) || errors.Is(err, context.DeadlineExceeded)
 }
 
 // LoadSchema reads a task JSON schema file, verifies it is valid JSON, and returns its raw bytes and hex SHA-256.
@@ -214,7 +237,7 @@ func (c *Client) Complete(ctx context.Context, req Request) (Response, error) {
 	}
 
 	if httpResp.StatusCode < 200 || httpResp.StatusCode >= 300 {
-		return Response{}, fmt.Errorf("reader: HTTP %d: %s", httpResp.StatusCode, strings.TrimSpace(string(body)))
+		return Response{}, &StatusError{Code: httpResp.StatusCode, Body: strings.TrimSpace(string(body))}
 	}
 
 	var wresp wireResponse
