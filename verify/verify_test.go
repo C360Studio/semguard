@@ -408,6 +408,12 @@ func TestParseFreeIgnoresParagraphLabels(t *testing.T) {
 		{"label_skipped_score_missing_or_correct", "d1 [2] makes the strongest claim. Score: 7\nd2 [1] is vague. Score: 3", map[string]int{"d2": 3}},
 		{"label_inside_parenthetical", "d1 (paragraph [3]): 8\nd2: 4", map[string]int{"d1": 8, "d2": 4}},
 		{"label_after_score", "**d1**: 7/10 — see [2]\n**d2**: 3/10 — see [1]", map[string]int{"d1": 7, "d2": 3}},
+		// Review of #42: nested and multi-line spans must not leak a digit either.
+		{"nested_brackets", "d1 [see [2], 3]: 8", map[string]int{"d1": 8}},
+		{"newline_inside_label", "d1 [2\n]: 8", map[string]int{}},
+		{"score_line_inside_span", "[note\nd1: 2\n]\nd1: 8", map[string]int{"d1": 8}},
+		{"unclosed_span_drops_rest", "d2: 4\nd1 [2: 8", map[string]int{"d2": 4}},
+		{"stray_close_ignored", "] d1 [2]: 6", map[string]int{"d1": 6}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

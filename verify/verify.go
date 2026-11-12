@@ -424,9 +424,9 @@ func ParseFree(raw string, docs []Document) Record {
 		}
 	}
 
-	// Fallback: scan for "<doc_id> ... <0..10>" per known document ID. Bracketed spans are emptied first so a
+	// Fallback: scan for "<doc_id> ... <0..10>" per known document ID. Bracketed spans are blanked first so a
 	// cited "[n]" paragraph label is never read as a score; a score that is then out of reach stays missing.
-	text := bracketRe.ReplaceAllString(raw, "[]")
+	text := blankBrackets(raw)
 	var scores []Score
 	for _, d := range docs {
 		re := regexp.MustCompile(`(?i)\b` + regexp.QuoteMeta(d.ID) + `\b[^\n0-9]{0,24}\b(10|[0-9])\b`)
@@ -439,7 +439,31 @@ func ParseFree(raw string, docs []Document) Record {
 	return Record{Scores: scores}
 }
 
-var bracketRe = regexp.MustCompile(`\[[^\]\n]*\]`)
+// blankBrackets replaces every character inside [...] with a space, keeping the brackets and newlines so line
+// boundaries hold. Spans nest and may cross lines; an unclosed "[" blanks the rest of the text (a score there stays
+// missing, never guessed), and a stray "]" is kept as is.
+func blankBrackets(s string) string {
+	var b strings.Builder
+	b.Grow(len(s))
+	depth := 0
+	for _, r := range s {
+		switch {
+		case r == '[':
+			depth++
+			b.WriteRune(r)
+		case r == ']':
+			if depth > 0 {
+				depth--
+			}
+			b.WriteRune(r)
+		case depth > 0 && r != '\n':
+			b.WriteByte(' ')
+		default:
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
+}
 
 func stripFences(s string) string {
 	b := bytes.TrimSpace([]byte(s))

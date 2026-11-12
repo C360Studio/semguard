@@ -48,13 +48,15 @@ Output verification for the reader stage: strict task schema validation, paragra
 
 ### Requirement: Free-mode score extraction
 
-`ParseFree` SHALL read scores from JSON output when it parses, and otherwise from prose by taking, per known document
-ID, a 0..10 number within 24 bytes after the ID on the same line. Before that prose scan it SHALL empty every
-bracketed span, so a cited `[n]` paragraph label is never read as a score. A document whose score is not found SHALL
-have no score, never a guessed one.
+`ParseFree` SHALL return the JSON output's scores when it parses and at least one known document has a score in 0..10,
+and otherwise read prose by taking, per known document ID, a 0..10 number within 24 characters after the ID on the
+same line. Before that prose scan it SHALL blank the inside of every bracketed span, nested or across lines, keeping
+line breaks, and treat an unclosed `[` as running to the end of the text, so no number inside brackets is ever read
+as a score. A document whose score is not found SHALL have no score, never a guessed one.
 
 #### Scenario: verify-parsefree-labels
 
-- **WHEN** free-mode prose cites a paragraph label such as `d1 [2] … Score: 7` or `d1 (paragraph [3]): 8`
-- **THEN** `ParseFree` never returns the label's number as the score: it returns the stated score when it is within
+- **WHEN** free-mode prose cites a paragraph label such as `d1 [2] … Score: 7`, `d1 (paragraph [3]): 8`, a nested
+  span `d1 [see [2], 3]: 8`, or a span across lines
+- **THEN** `ParseFree` never returns a number inside the brackets as the score: it returns the stated score when it is within
   reach after the emptied label, and no score for that document otherwise
