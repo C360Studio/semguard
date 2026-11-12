@@ -3,11 +3,13 @@ package reader
 import (
 	"context"
 	"encoding/json"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func checkStrictObjectSchema(t *testing.T, path string, node map[string]any) {
@@ -180,5 +182,114 @@ func TestCompleteBoundedResponseAndErrors(t *testing.T) {
 	cancel()
 	if _, err := c500.Complete(ctx, Request{Model: "m", User: "u"}); err == nil {
 		t.Fatal("canceled context must fail")
+	}
+}
+
+// TestTransient pins which Complete errors a caller may retry: request timeout, connection error, HTTP 429, and
+// HTTP 5xx. A 200 with a malformed body and any other 4xx are not transient.
+//
+//aip:verifies reader-transient-errors
+func TestTransient(t *testing.T) {
+	release := make(chan struct{}) // frees the /hang handler so srv.Close does not wait on it
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/s429/chat/completions":
+			w.WriteHeader(http.StatusTooManyRequests)
+		case "/s500/chat/completions":
+			w.WriteHeader(http.StatusInternalServerError)
+		case "/s503/chat/completions":
+			w.WriteHeader(http.StatusServiceUnavailable)
+		case "/s400/chat/completions":
+			w.WriteHeader(http.StatusBadRequest)
+		case "/s401/chat/completions":
+			w.WriteHeader(http.StatusUnauthorized)
+		case "/s404/chat/completions":
+			w.WriteHeader(http.StatusNotFound)
+		case "/malformed/chat/completions":
+			_, _ = w.Write([]byte("{not json"))
+		case "/hang/chat/completions":
+			select {
+			case <-r.Context().Done():
+			case <-release:
+			}
+		}
+	}))
+	defer srv.Close()
+	defer close(release)
+
+	closed := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+	closedURL := closed.URL
+	closed.Close()
+
+	call := func(base string, ctx context.Context) error {
+		_, err := (&Client{BaseURL: base}).Complete(ctx, Request{Model: "m", User: "u"})
+		if err == nil {
+			t.Fatalf("%s: want an error", base)
+		}
+		return err
+	}
+	for path, want := range map[string]bool{
+		"/s429": true, "/s500": true, "/s503": true,
+		"/s400": false, "/s401": false, "/s404": false, "/malformed": false,
+	} {
+		if got := Transient(call(srv.URL+path, context.Background())); got != want {
+			t.Errorf("%s: Transient = %v, want %v", path, got, want)
+		}
+	}
+	if !Transient(call(closedURL, context.Background())) {
+		t.Error("connection refused: Transient = false, want true")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	defer cancel()
+	if !Transient(call(srv.URL+"/hang", ctx)) {
+		t.Error("request timeout: Transient = false, want true")
+	}
+	if Transient(nil) {
+		t.Error("Transient(nil) = true")
+	}
+
+	// Review of #43: the URL wrapper is not the cause. A bad scheme, a malformed URL, and the caller's own
+	// cancellation are permanent; only 500..599 counts as 5xx.
+	for _, base := range []string{"ftp://example.invalid", "http://%zz"} {
+		if Transient(call(base, context.Background())) {
+			t.Errorf("%s: Transient = true, want false", base)
+		}
+	}
+	canceled, cancelNow := context.WithCancel(context.Background())
+	cancelNow()
+	if Transient(call(srv.URL+"/s503", canceled)) {
+		t.Error("canceled caller context: Transient = true, want false")
+	}
+	// Second review of #43: a TLS handshake timeout is a net.Error with Timeout() but neither a deadline nor an
+	// *net.OpError. A listener that accepts and never speaks TLS produces the real one.
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = ln.Close() }()
+	held := make(chan net.Conn, 4)
+	go func() {
+		for {
+			c, err := ln.Accept()
+			if err != nil {
+				return
+			}
+			held <- c
+		}
+	}()
+	defer func() {
+		for len(held) > 0 {
+			_ = (<-held).Close()
+		}
+	}()
+	tlsClient := &Client{BaseURL: "https://" + ln.Addr().String(), HTTPClient: &http.Client{Transport: &http.Transport{TLSHandshakeTimeout: 50 * time.Millisecond}}}
+	if _, err := tlsClient.Complete(context.Background(), Request{Model: "m", User: "u"}); err == nil || !Transient(err) {
+		t.Errorf("TLS handshake timeout (%v): Transient = false, want true", err)
+	}
+
+	for code, want := range map[int]bool{428: false, 429: true, 430: false, 499: false, 500: true, 599: true, 600: false} {
+		if got := Transient(&StatusError{Code: code}); got != want {
+			t.Errorf("StatusError %d: Transient = %v, want %v", code, got, want)
+		}
 	}
 }

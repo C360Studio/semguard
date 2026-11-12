@@ -34,6 +34,13 @@ func main() {
 
 const maxTrials = 10
 
+// maxAttempts bounds reader attempts per case (#41): transient errors (reader.Transient) get up to two retries,
+// anything else or an error that persists still fails the run.
+const maxAttempts = 3
+
+// retryWait is the base wait between attempts, multiplied by the attempt number; tests set it to zero.
+var retryWait = 2 * time.Second
+
 func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	if len(args) > 0 && args[0] == "matrix" {
 		return runMatrix(args[1:], stdout, stderr)
@@ -419,21 +426,34 @@ func executeOne(
 		return report.RunResult{}, "", fmt.Errorf("frame: %w", err)
 	}
 
-	reqCtx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
-
-	start := time.Now()
-	resp, err := client.Complete(reqCtx, reader.Request{
+	req := reader.Request{
 		Model:      model,
 		System:     prompt.System,
 		User:       prompt.User,
 		Mode:       mode,
 		TaskID:     c.Task,
 		SchemaJSON: schemaJSON,
-	})
-	durMs := time.Since(start).Milliseconds()
-	if err != nil {
-		return report.RunResult{}, "", err
+	}
+	var resp reader.Response
+	var durMs int64
+	attempt := 1
+	for ; ; attempt++ {
+		reqCtx, cancel := context.WithTimeout(ctx, timeout)
+		start := time.Now()
+		resp, err = client.Complete(reqCtx, req)
+		durMs = time.Since(start).Milliseconds()
+		cancel()
+		if err == nil {
+			break
+		}
+		if attempt == maxAttempts || ctx.Err() != nil || !reader.Transient(err) {
+			return report.RunResult{}, "", fmt.Errorf("attempt %d of %d: %w", attempt, maxAttempts, err)
+		}
+		select {
+		case <-ctx.Done():
+			return report.RunResult{}, "", ctx.Err()
+		case <-time.After(retryWait * time.Duration(attempt)):
+		}
 	}
 
 	psum := sha256.Sum256([]byte(prompt.System + "\x00" + prompt.User))
@@ -450,6 +470,7 @@ func executeOne(
 		Refused:      resp.Refused,
 		Refusal:      resp.Refusal,
 		DurationMs:   durMs,
+		Attempts:     attempt,
 	}, prompt.FramingSHA256, nil
 }
 

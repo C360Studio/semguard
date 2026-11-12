@@ -11,9 +11,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"strings"
+	"syscall"
 )
 
 // DefaultMaxResponseBytes bounds response bodies when Client.MaxResponseBytes is zero (1 MiB).
@@ -59,6 +61,32 @@ type Response struct {
 	Refusal      string
 	FinishReason string
 	SchemaSHA256 string
+}
+
+// StatusError is a non-2xx HTTP response from the chat endpoint.
+type StatusError struct {
+	Code int
+	Body string
+}
+
+func (e *StatusError) Error() string { return fmt.Sprintf("reader: HTTP %d: %s", e.Code, e.Body) }
+
+// Transient reports whether a Complete error may clear on a later attempt: a request timeout, a connection error,
+// HTTP 429, or HTTP 500..599. A net.Error counts only when it reports Timeout(). It classifies the underlying cause, not the *url.Error wrapper, so a bad scheme, a
+// malformed URL, a canceled caller context, a malformed 2xx body, and any other status are not transient.
+// Complete itself never retries; the caller decides.
+func Transient(err error) bool {
+	var se *StatusError
+	if errors.As(err, &se) {
+		return se.Code == http.StatusTooManyRequests || (se.Code >= 500 && se.Code < 600)
+	}
+	if errors.Is(err, context.Canceled) {
+		return false
+	}
+	var op *net.OpError
+	var ne net.Error // a timeout-reporting cause, such as net/http's TLS handshake timeout
+	return errors.Is(err, context.DeadlineExceeded) || errors.As(err, &op) || (errors.As(err, &ne) && ne.Timeout()) ||
+		errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, syscall.ECONNRESET)
 }
 
 // LoadSchema reads a task JSON schema file, verifies it is valid JSON, and returns its raw bytes and hex SHA-256.
@@ -214,7 +242,7 @@ func (c *Client) Complete(ctx context.Context, req Request) (Response, error) {
 	}
 
 	if httpResp.StatusCode < 200 || httpResp.StatusCode >= 300 {
-		return Response{}, fmt.Errorf("reader: HTTP %d: %s", httpResp.StatusCode, strings.TrimSpace(string(body)))
+		return Response{}, &StatusError{Code: httpResp.StatusCode, Body: strings.TrimSpace(string(body))}
 	}
 
 	var wresp wireResponse
