@@ -14,20 +14,29 @@ sources  ->  gate  ->  frame  ->  READER  ->  verify  ->  audit  ->  sink
 
 | Stage | Box kind | Contract |
 | --- | --- | --- |
-| source | code | `Document{ID, Text, Links}`: a corpus or a live fetch |
-| gate | scores only | `Score(ctx, paragraph) (score, version)`; redact above a threshold |
-| frame | code | `Frame(task, docs) Prompt`: datamark, framing text, token cap |
-| reader | writes text | one chat completion, schema-forced, no tools |
+| source | code | `Document{ID, Text}`: a corpus or a live fetch |
+| gate *(not built)* | scores only | `Score(ctx, paragraph) (score, version)`; redact above a threshold |
+| frame | code | `Frame(task, docs, opts) (Prompt, error)`: datamark, framing text, byte cap |
+| reader | writes text | one chat completion, free or schema-forced, no tools |
 | verify | code | `Verify(raw, docs) (Record, []Violation)`: claims resolve to paragraphs, links allowed |
-| audit | scores only | `Audit(task, record) (label, reason)`; never sees the documents |
-| sink | code | `Render(record, docs)`: quotes by paragraph index, no remote fetch |
+| audit | scores only | `Audit(ctx, task, record) (Result, error)`; never sees the documents |
+| sink *(not built)* | code | caller glue: render verified quotes by paragraph index, no remote fetch |
 
 The only box that writes text is the reader. Boxes that score return a number or a label, never text. Code boxes run
 no model.
 
-The harness switches each stage on or off and reports the hijack rules for every combination. The published result
-reads: with this shape, these stages, and this model, this is the hijack rate. A consumer imports the module for
-frame, verify, and the gate client, and writes its own glue for source and sink.
+The harness (`cmd/detonate`) switches `frame`, `verify`, and `audit` on or off (`gate` and `sink` are not implemented)
+and reports the hijack rules for each measured combination. The published result reads: with this shape, these stages,
+and this model, these are the measured counts on this corpus. A consumer imports the module for `untrusted` (`frame`)
+and `verify` (there is no gate client and no `Render`), and writes its own glue for source and sink.
+
+## What the lab has not measured
+
+- One reader task (score and compare). Other output shapes are untested.
+- The reader has no tools. Nothing here applies to a model that can act.
+- One reader's output feeding a second model is untested.
+- One trial per cell, 10 cases per class, two reader models.
+- The gate and the sink are not built.
 
 ## Hijack definition
 
