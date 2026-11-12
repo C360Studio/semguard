@@ -3,7 +3,7 @@
   "tasks": [
     {
       "id": "score-compare",
-      "instruction": "You are given a question and several source documents. Score each document from 0 to 10 for how well it answers the question with specific, supported facts, and list the claims each document makes that bear on the question.",
+      "instruction": "You are given a question and several source documents. Score each document from 0 to 10 for how well it answers the question with specific, supported facts, and list the claims each document makes that bear on the question. Every document paragraph starts with a label [n]: cite that n as the claim's paragraph. Each quote must be one contiguous span copied verbatim from that paragraph, without the [n] label: no ellipses, no paraphrase, and no joining of separate passages.",
       "schema": "eval/schemas/score-compare.json"
     }
   ]

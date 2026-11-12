@@ -7,17 +7,19 @@ as independent switches and a size cap that never truncates. Design: `openspec/c
 ### Requirement: Datamark documents
 
 `Datamark` SHALL wrap each document in `<<report id=ID>>` and `<</report>>` in input order, replace every whitespace
-run inside a paragraph with `^`, and keep each `\n\n` paragraph break. `Unmark` SHALL replace each `^` with one space.
+run inside a paragraph with `^`, keep each `\n\n` paragraph break, and prefix each paragraph with `[n] `, its 1-based
+index as `verify` counts it. `Unmark` SHALL replace each `^` with one space.
 
 #### Scenario: datamark-paragraphs-kept
 
 - **WHEN** a document with N paragraphs is datamarked
-- **THEN** its marked body splits on `\n\n` into N paragraphs, and none of them contains a whitespace character
+- **THEN** its marked body splits on `\n\n` into N paragraphs, paragraph i starts with `[i] `, and none of them
+  contains a whitespace character after that label
 
 #### Scenario: datamark-round-trip
 
 - **WHEN** a paragraph whose whitespace is single spaces is datamarked and then unmarked
-- **THEN** the result equals the original paragraph byte for byte
+- **THEN** the result after its `[n] ` label equals the original paragraph byte for byte
 
 ### Requirement: Refuse marker spoofing
 
@@ -38,7 +40,8 @@ run inside a paragraph with `^`, and keep each `\n\n` paragraph break. `Unmark` 
 
 `Frame` SHALL put the task instruction in `System` and the question in `User`, under two independent switches.
 With `Datamark` on, `User` SHALL carry the documents datamarked. With it off, `User` SHALL carry each document
-unchanged under a plain `Document <id>:` header and no markers. With `Framing` on, `System` SHALL add the embedded
+unchanged under a plain `Document <id>:` header and no markers, except that each paragraph is prefixed with `[n] `,
+its 1-based index as `verify` counts it. With `Framing` on, `System` SHALL add the embedded
 framing text and `FramingSHA256` SHALL be its SHA-256. With it off, neither message SHALL contain the framing text, and
 `FramingSHA256` SHALL be empty.
 
@@ -56,12 +59,20 @@ framing text and `FramingSHA256` SHALL be its SHA-256. With it off, neither mess
 #### Scenario: frame-framing-only
 
 - **WHEN** the same input is framed with `Datamark` off and `Framing` on
-- **THEN** `User` contains no `<<report` and every document's text unchanged, and `System` contains the framing text
+- **THEN** `User` contains no `<<report` and every document's text unchanged apart from its `[n] ` paragraph labels,
+  and `System` contains the framing text
 
 #### Scenario: frame-both-off
 
 - **WHEN** the same input is framed with both switches off
 - **THEN** neither message contains `<<report` or the framing text, and every document's text appears unchanged
+  apart from its `[n] ` paragraph labels
+
+#### Scenario: frame-paragraph-labels
+
+- **WHEN** documents are framed under any combination of the two switches
+- **THEN** every paragraph carries a `[n] ` label, and `verify.Verify` accepts a quote from the text after label n as a
+  quote from paragraph n
 
 ### Requirement: Token cap without truncation
 

@@ -1,11 +1,15 @@
 package untrusted
 
 import (
+	"fmt"
+	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 	"unicode"
 
 	"github.com/c360studio/semguard/internal/corpus"
+	"github.com/c360studio/semguard/verify"
 )
 
 // pinnedFramingSHA256 is the hash every results file cites; editing prompts/frame.txt is a prompt change and a rerun.
@@ -33,7 +37,28 @@ func body(t *testing.T, s, id string) string {
 	return b
 }
 
-// assertKept checks that d's marked body has d's paragraph count and no whitespace inside any paragraph.
+// unlabel strips the "[n] " label from paragraph n of a marked body, failing if it is not there.
+func unlabel(t *testing.T, id string, n int, p string) string {
+	t.Helper()
+	rest, ok := strings.CutPrefix(p, fmt.Sprintf("[%d] ", n))
+	if !ok {
+		t.Fatalf("%s paragraph %d lacks its [%d] label: %q", id, n, n, p)
+	}
+	return rest
+}
+
+// unmarkBody strips every paragraph label from a marked body and unmarks the rest.
+func unmarkBody(t *testing.T, id, b string) string {
+	t.Helper()
+	paras := strings.Split(b, "\n\n")
+	for i, p := range paras {
+		paras[i] = Unmark(unlabel(t, id, i+1, p))
+	}
+	return strings.Join(paras, "\n\n")
+}
+
+// assertKept checks that d's marked body has d's paragraph count, each labeled with its 1-based index, and no
+// whitespace inside any paragraph after the label.
 func assertKept(t *testing.T, marked string, d Document) {
 	t.Helper()
 	got := strings.Split(body(t, marked, d.ID), "\n\n")
@@ -41,7 +66,7 @@ func assertKept(t *testing.T, marked string, d Document) {
 		t.Fatalf("%s: %d marked paragraphs, want %d", d.ID, len(got), want)
 	}
 	for i, p := range got {
-		if strings.IndexFunc(p, unicode.IsSpace) >= 0 {
+		if strings.IndexFunc(unlabel(t, d.ID, i+1, p), unicode.IsSpace) >= 0 {
 			t.Fatalf("%s paragraph %d keeps whitespace: %q", d.ID, i+1, p)
 		}
 	}
@@ -56,7 +81,7 @@ func TestDatamarkParagraphsKept(t *testing.T) {
 	for _, d := range docs {
 		assertKept(t, marked, d)
 	}
-	if got := body(t, marked, "d1"); got != "First^paragraph^with^odd^spacing.\n\nSecond^one.\n\nThird." {
+	if got := body(t, marked, "d1"); got != "[1] First^paragraph^with^odd^spacing.\n\n[2] Second^one.\n\n[3] Third." {
 		t.Fatalf("d1 marked as %q", got)
 	}
 }
@@ -68,7 +93,7 @@ func TestDatamarkRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := Unmark(body(t, marked, "d1")); got != d.Text {
+	if got := unmarkBody(t, "d1", body(t, marked, "d1")); got != d.Text {
 		t.Fatalf("round trip gave %q, want %q", got, d.Text)
 	}
 }
@@ -102,7 +127,7 @@ func FuzzDatamark(f *testing.F) {
 		if marked, err = Datamark([]Document{single}); err != nil {
 			t.Fatal(err)
 		}
-		if got := Unmark(body(t, marked, "d1")); got != single.Text {
+		if got := unmarkBody(t, "d1", body(t, marked, "d1")); got != single.Text {
 			t.Fatalf("round trip gave %q, want %q", got, single.Text)
 		}
 	})
@@ -174,8 +199,12 @@ func TestFrameCells(t *testing.T) {
 			t.Fatalf("%+v: markers with datamark off", o)
 		}
 		for _, d := range docs {
-			if !strings.Contains(p.User, "Document "+d.ID+":\n"+d.Text) {
-				t.Fatalf("%+v: %s missing or altered", o, d.ID)
+			paras := strings.Split(d.Text, "\n\n")
+			for i := range paras {
+				paras[i] = fmt.Sprintf("[%d] %s", i+1, paras[i])
+			}
+			if !strings.Contains(p.User, "Document "+d.ID+":\n"+strings.Join(paras, "\n\n")) {
+				t.Fatalf("%+v: %s missing, unlabeled, or altered", o, d.ID)
 			}
 		}
 	}
@@ -360,4 +389,49 @@ func FuzzSegmentAndStrip(f *testing.F) {
 			}
 		}
 	})
+}
+
+// TestFrameLabelsMatchVerify uses verify.Verify as the oracle for paragraph numbering: for every frame cell, the
+// first word after each "[n] " label in the prompt must be accepted by Verify as a quote from paragraph n.
+// A label that is off by one (the counting error #28 measured) or missing fails here.
+//
+//aip:verifies frame-paragraph-labels
+func TestFrameLabelsMatchVerify(t *testing.T) {
+	vdocs := make([]verify.Document, len(docs))
+	for i, d := range docs {
+		vdocs[i] = verify.Document{ID: d.ID, Text: d.Text}
+	}
+	labelRe := regexp.MustCompile(`(?m)^\[(\d+)\] ([^\n]+)`)
+	for _, o := range cells {
+		p, err := Frame(task, docs, o)
+		if err != nil {
+			t.Fatalf("%+v: %v", o, err)
+		}
+		for _, d := range docs {
+			_, after, ok := strings.Cut(p.User, d.ID)
+			if !ok {
+				t.Fatalf("%+v: %s missing", o, d.ID)
+			}
+			if next := strings.Index(after, "\n\nDocument "); next >= 0 {
+				after = after[:next]
+			}
+			if next := strings.Index(after, "<</report>>"); next >= 0 {
+				after = after[:next]
+			}
+			labels := labelRe.FindAllStringSubmatch(after, -1)
+			if want := len(strings.Split(d.Text, "\n\n")); len(labels) != want {
+				t.Fatalf("%+v: %s has %d labels, want %d", o, d.ID, len(labels), want)
+			}
+			for _, m := range labels {
+				n, _ := strconv.Atoi(m[1])
+				// The first word is quote enough to pin the index; whole datamarked paragraphs with tabs or
+				// newlines do not round-trip through Unmark, which #28 leaves to verify as it is.
+				first := strings.FieldsFunc(m[2], func(r rune) bool { return r == '^' || unicode.IsSpace(r) })[0]
+				out := fmt.Sprintf(`{"scores":[{"doc_id":"d1","score":5},{"doc_id":"d2","score":5}],"claims":[{"doc_id":%q,"paragraph":%d,"claim":"c","quote":%q}],"confidence":0.5}`, d.ID, n, first)
+				if _, vs := verify.Verify(out, vdocs); len(vs) > 0 {
+					t.Fatalf("%+v: %s label [%d] quote %q rejected: %v", o, d.ID, n, first, vs)
+				}
+			}
+		}
+	}
 }
