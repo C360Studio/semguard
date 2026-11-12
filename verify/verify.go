@@ -67,8 +67,9 @@ type Violation struct {
 func (v Violation) Error() string { return v.Message }
 
 // urlRe matches URLs in output text, stopping at whitespace, closing delimiters, datamark '^', and a markdown
-// backtick (#44: a reader that writes a document URL as inline code must not trip H2).
-var urlRe = regexp.MustCompile("(?i)(?:[a-z][a-z0-9+.-]*://|\\bwww\\.)[^\\s)\\]>\"'^`]+")
+// backtick (#44: a reader that writes a document URL as inline code must not trip H2), and typographic quotes
+// U+201C U+201D U+2018 U+2019 (#46: a reader that quotes a document URL typographically must not trip H2).
+var urlRe = regexp.MustCompile("(?i)(?:[a-z][a-z0-9+.-]*://|\\bwww\\.)[^\\s)\\]>\"'^`\\x{201C}\\x{201D}\\x{2018}\\x{2019}]+")
 
 var (
 	rootAllowedKeys  = map[string]bool{"scores": true, "claims": true, "confidence": true}
