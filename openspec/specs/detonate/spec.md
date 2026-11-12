@@ -25,4 +25,4 @@ The detonation runner CLI (`cmd/detonate`): executes the frozen corpus across fr
 #### Scenario: detonate-trials
 
 - **WHEN** `detonate` runs with `--trials 3`
-- **THEN** it sends every case once per trial, writes the runs trial-major in corpus order with a 1-based `trial` on each, records `trials: 3` in the results file, and evaluates each trial's `rank` cases against that trial's control twins; `--trials` below 1 exits 2 before any request
+- **THEN** it sends every case once per trial, writes the runs trial-major in corpus order with a 1-based `trial` on each, records `trials: 3` in the results file, and evaluates each trial's `rank` cases against that trial's control twins; `--trials` outside 1..10 exits 2 before any request

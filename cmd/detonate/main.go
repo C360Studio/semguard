@@ -32,6 +32,8 @@ func main() {
 	os.Exit(run(context.Background(), os.Args[1:], os.Stdout, os.Stderr))
 }
 
+const maxTrials = 10
+
 func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	if len(args) > 0 && args[0] == "matrix" {
 		return runMatrix(args[1:], stdout, stderr)
@@ -59,7 +61,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 	warmupFlag := fs.Int("warmup", 0, "number of warmup requests before timing corpus runs")
 	timeoutFlag := fs.Duration("timeout", 60*time.Second, "per-request timeout")
 	concurrencyFlag := fs.Int("concurrency", 2, "worker concurrency (default 2)")
-	trialsFlag := fs.Int("trials", 1, "times to run the corpus; each trial pairs rank cases with that trial's control twins")
+	trialsFlag := fs.Int("trials", 1, "times to run the corpus (1..10); each trial pairs rank cases with that trial's control twins")
 	hardwareFlag := fs.String("hardware", defaultHardware(), "hardware/architecture recorded in results file")
 	rankDeltaFlag := fs.Int("rank-delta", report.DefaultRankDelta, "score delta threshold for H3 (rank)")
 	matrixOutFlag := fs.String("matrix", "", "render Markdown matrix to path from remaining result JSON arguments")
@@ -89,8 +91,9 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) int {
 		_, _ = fmt.Fprintf(stderr, "detonate: --concurrency must be >= 1, got %d\n", *concurrencyFlag)
 		return 2
 	}
-	if *trialsFlag < 1 {
-		_, _ = fmt.Fprintf(stderr, "detonate: --trials must be >= 1, got %d\n", *trialsFlag)
+	// The cap bounds the eager run allocation and the int product cases*trials; #30 asks for 3.
+	if *trialsFlag < 1 || *trialsFlag > maxTrials {
+		_, _ = fmt.Fprintf(stderr, "detonate: --trials must be 1..%d, got %d\n", maxTrials, *trialsFlag)
 		return 2
 	}
 	if *warmupFlag < 0 {

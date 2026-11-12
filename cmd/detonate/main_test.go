@@ -476,7 +476,7 @@ func TestDetonateTrials(t *testing.T) {
 		return []string{"--cases", corpusDir, "--frame", "datamark", "--verify", "schema", "--model", "m", "--url", srv.URL, "--trials", trials, "--out", out}
 	}
 
-	for _, bad := range []string{"0", "-1"} {
+	for _, bad := range []string{"0", "-1", "11", "2305843009213693952"} {
 		var stdout, stderr bytes.Buffer
 		if code := run(context.Background(), args(bad, filepath.Join(t.TempDir(), "x.json")), &stdout, &stderr); code != 2 {
 			t.Fatalf("--trials %s exited %d, want 2", bad, code)
