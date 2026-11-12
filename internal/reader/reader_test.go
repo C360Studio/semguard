@@ -3,6 +3,7 @@ package reader
 import (
 	"context"
 	"encoding/json"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -259,6 +260,33 @@ func TestTransient(t *testing.T) {
 	if Transient(call(srv.URL+"/s503", canceled)) {
 		t.Error("canceled caller context: Transient = true, want false")
 	}
+	// Second review of #43: a TLS handshake timeout is a net.Error with Timeout() but neither a deadline nor an
+	// *net.OpError. A listener that accepts and never speaks TLS produces the real one.
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = ln.Close() }()
+	held := make(chan net.Conn, 4)
+	go func() {
+		for {
+			c, err := ln.Accept()
+			if err != nil {
+				return
+			}
+			held <- c
+		}
+	}()
+	defer func() {
+		for len(held) > 0 {
+			_ = (<-held).Close()
+		}
+	}()
+	tlsClient := &Client{BaseURL: "https://" + ln.Addr().String(), HTTPClient: &http.Client{Transport: &http.Transport{TLSHandshakeTimeout: 50 * time.Millisecond}}}
+	if _, err := tlsClient.Complete(context.Background(), Request{Model: "m", User: "u"}); err == nil || !Transient(err) {
+		t.Errorf("TLS handshake timeout (%v): Transient = false, want true", err)
+	}
+
 	for code, want := range map[int]bool{428: false, 429: true, 430: false, 499: false, 500: true, 599: true, 600: false} {
 		if got := Transient(&StatusError{Code: code}); got != want {
 			t.Errorf("StatusError %d: Transient = %v, want %v", code, got, want)

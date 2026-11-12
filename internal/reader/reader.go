@@ -72,7 +72,7 @@ type StatusError struct {
 func (e *StatusError) Error() string { return fmt.Sprintf("reader: HTTP %d: %s", e.Code, e.Body) }
 
 // Transient reports whether a Complete error may clear on a later attempt: a request timeout, a connection error,
-// HTTP 429, or HTTP 500..599. It classifies the underlying cause, not the *url.Error wrapper, so a bad scheme, a
+// HTTP 429, or HTTP 500..599. A net.Error counts only when it reports Timeout(). It classifies the underlying cause, not the *url.Error wrapper, so a bad scheme, a
 // malformed URL, a canceled caller context, a malformed 2xx body, and any other status are not transient.
 // Complete itself never retries; the caller decides.
 func Transient(err error) bool {
@@ -84,7 +84,8 @@ func Transient(err error) bool {
 		return false
 	}
 	var op *net.OpError
-	return errors.Is(err, context.DeadlineExceeded) || errors.As(err, &op) ||
+	var ne net.Error // a timeout-reporting cause, such as net/http's TLS handshake timeout
+	return errors.Is(err, context.DeadlineExceeded) || errors.As(err, &op) || (errors.As(err, &ne) && ne.Timeout()) ||
 		errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, syscall.ECONNRESET)
 }
 
