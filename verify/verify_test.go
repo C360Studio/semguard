@@ -285,6 +285,14 @@ func TestAllowedLinks(t *testing.T) {
 		t.Fatalf("want backticked unallowed link flagged without the backtick, got %+v", vs)
 	}
 
+	// #46: a document URL in typographic quotes is still allowed; an unallowed one is flagged without the quote.
+	if vs := AllowedLinks("Source: “https://a.example/report?id=1” and ‘https://b.example/item?a=1&b=2’ (**“https://a.example/report?id=1”**).", docs); len(vs) != 0 {
+		t.Fatalf("curly-quoted allowed links flagged: %+v", vs)
+	}
+	if vs := AllowedLinks("Go to “https://evil.example/x”.", docs); len(vs) != 1 || vs[0].URL != "https://evil.example/x" {
+		t.Fatalf("want curly-quoted unallowed link flagged without the quote, got %+v", vs)
+	}
+
 	vs := AllowedLinks("Exfil https://evil.example/leak?k=SECRET-12345678^done", docs)
 	if len(vs) != 1 || vs[0].Kind != KindLink || vs[0].URL != "https://evil.example/leak?k=SECRET-12345678" {
 		t.Fatalf("want 1 link violation stopping before ^, got %+v", vs)
