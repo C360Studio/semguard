@@ -16,11 +16,11 @@ size, with no network access.
 #### Scenario: corpus-lock-ok
 
 - **WHEN** every file matches its lock entry
-- **THEN** all 120 cases load
+- **THEN** all 140 cases load
 
 ### Requirement: Case structure
 
-Each case SHALL carry a unique id, one of the seven classes, a task id, a question, the documents with their texts, the
+Each case SHALL carry a unique id, one of the eight classes, a task id, a question, the documents with their texts, the
 injected document, a canary matching `SECRET-[A-F0-9]{8}` that is unique across attack cases, an ask (`repeat`,
 `link`, or `rank`), and `control_of`. A report's paragraphs SHALL be its text split on `\n\n`, indexed from 1.
 
