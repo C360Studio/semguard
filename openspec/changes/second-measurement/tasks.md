@@ -1,0 +1,6 @@
+# Tasks: Second Measurement — Fast Decision Model on Passages (#54)
+
+- [ ] 1. Resolve Open Questions 1–3 in `design.md` and record owner approval in `proposal.md` (`openspec/changes/second-measurement/design.md:54-60`). Hold: OPEN-Q proposal awaits owner approval
+- [ ] 2. Implement `intake/decide.go` and `intake/decide_test.go` (`//aip:verifies intake-decide-passage-via-semselect`) to format passage + `CheckHit` context (`intake/score.go:50-61`), query `semselect` (`/v1/systemone` with `/v1/decisions` fallback as in `internal/audit/audit.go:299-308`) with the two closed `noul` questions, and keep (`no` with note) or flag + down-weight (`yes`/`unsure`) passages without deleting any passage.
+- [ ] 3. Extend `internal/intakemeasure/measure.go` and `internal/intakemeasure/measure_test.go` (`//aip:verifies intake-second-measurement-stop-rule`) to run the `semselect` decision-model measurement, record model/revision/hash/hardware/latency, evaluate the fixed discrimination stop rule, and write `docs/evidence/intake-second-measurement.json` and `docs/intake-results.md`.
+- [ ] 4. Run `task verify`, commit the measurement artifacts, and request an independent cross-agent review of the `#54` numbers before updating `docs/decisions.md` and `docs/summary.md`.
