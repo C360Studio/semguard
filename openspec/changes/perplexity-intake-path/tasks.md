@@ -1,6 +1,0 @@
-# Tasks: perplexity-intake-path
-
-- [ ] 1. Hold: OPEN-Q proposal awaits owner approval — resolve Open Questions 1–3 in `openspec/changes/perplexity-intake-path/design.md` and record `Approved-by:` in `openspec/changes/perplexity-intake-path/proposal.md`.
-- [ ] 2. Implement `ParsePerplexityAgent` (`intake/perplexity.go`) with strict JSON decoding (`intake/exa.go:269-284`) for `POST /v1/agent` (`output[]` `search_results` with integer `id` and `message` with `output_text` + `annotations`), plus unit and mutation tests for malformed/unexpected shapes (`intake/perplexity_test.go`).
-- [ ] 3. Implement answer-to-source mapping (`annotations` byte spans and inline `[n]` markers), answer-level checks (`dangling_citation_marker`, `answer_unlisted_url`, `unsourced_sentence`, `unfetched_citation`), and Exa `/contents` resolution (`ProcessPerplexityAgent`, `ResolvePerplexityWithContents`, `NewHTTPExaContentsFetcher`) in `intake/perplexity.go` and `intake/graph.go:168-255`.
-- [ ] 4. Test the combined Perplexity + Exa intake flow in-process against `servicesim`'s `perplexity.Profile()` and `exa.Profile()` (`intake/perplexity_test.go`), verify branch detection with `task mutate:check`, archive `perplexity-intake-path`, and run `task verify` and `scripts/ateam bench --selftest`.

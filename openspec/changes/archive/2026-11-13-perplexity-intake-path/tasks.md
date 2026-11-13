@@ -1,0 +1,6 @@
+# Tasks: perplexity-intake-path
+
+- [x] 1. Resolve Open Questions 1–3 in `openspec/changes/perplexity-intake-path/design.md` and record `Approved-by: Coby (2026-11-13) sha256:8be3afdc4d2c` in `openspec/changes/perplexity-intake-path/proposal.md`.
+- [x] 2. Implement `ParsePerplexityAgent` (`intake/perplexity.go`) with strict JSON decoding (`intake/exa.go:269-284`) for `POST /v1/agent` (`output[]` `search_results` with integer `id` and `message` with `output_text` + `annotations`), plus unit and mutation tests for malformed/unexpected shapes (`intake/perplexity_test.go`).
+- [x] 3. Implement answer-to-source mapping (`annotations` byte spans and inline `[n]` markers), answer-level checks (`dangling_citation_marker`, `answer_unlisted_url`, `unsourced_sentence`, `unfetched_citation`), and Exa `/contents` resolution (`ProcessPerplexityAgent`, `ResolvePerplexityWithContents`, `NewHTTPExaContentsFetcher`) in `intake/perplexity.go` and `intake/graph.go:168-255`.
+- [x] 4. Test the combined Perplexity + Exa intake flow in-process against `servicesim`'s `perplexity.Profile()` and `exa.Profile()` (`intake/perplexity_test.go`), verify branch detection with `task mutate:check`, archive `perplexity-intake-path`, and run `task verify` and `scripts/ateam bench --selftest`.

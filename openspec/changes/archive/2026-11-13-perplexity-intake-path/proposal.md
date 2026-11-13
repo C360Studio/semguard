@@ -2,7 +2,7 @@
 
 Addresses: #52
 Track: design
-Approved-by:
+Approved-by: Coby (2026-11-13) sha256:8be3afdc4d2c
 
 ## Why
 
