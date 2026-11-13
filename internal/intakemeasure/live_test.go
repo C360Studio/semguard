@@ -123,8 +123,9 @@ func TestGenerateSecondMeasurementLive(t *testing.T) {
 	semselectDir := os.Getenv("SEMGUARD_LIVE_SEMSELECT_DIR")
 	baseURL := os.Getenv("SEMGUARD_LIVE_SEMSELECT_URL")
 	runMercury := os.Getenv("SEMGUARD_LIVE_MERCURY_DECIDE") == "1"
-	if semselectDir == "" && baseURL == "" && !runMercury {
-		t.Skip("set SEMGUARD_LIVE_SEMSELECT_DIR, SEMGUARD_LIVE_SEMSELECT_URL, or SEMGUARD_LIVE_MERCURY_DECIDE=1 to run live second measurement")
+	renderSaved := os.Getenv("SEMGUARD_RENDER_SAVED") == "1"
+	if semselectDir == "" && baseURL == "" && !runMercury && !renderSaved {
+		t.Skip("set SEMGUARD_LIVE_SEMSELECT_DIR, SEMGUARD_LIVE_SEMSELECT_URL, SEMGUARD_LIVE_MERCURY_DECIDE=1, or SEMGUARD_RENDER_SAVED=1 to run")
 	}
 
 	ctx := context.Background()

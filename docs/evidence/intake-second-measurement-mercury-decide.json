@@ -1,15 +1,15 @@
 {
   "corpus_sha256": "0ee5145661e4e39c772d509332f12e98fb5a82747cfb42f414fc9c601b4a90f9",
   "model_lock": {
-    "semselect_revision": "hosted-api",
-    "repository": "inceptionlabs/mercury-decide",
-    "revision": "hosted-2026-04-19",
-    "filename": "hosted-api",
+    "semselect_revision": "direct-/v1/decisions-contract",
+    "repository": "inception/mercury-decide",
+    "revision": "api-2026-11-13",
+    "filename": "hosted-api-no-local-weights",
     "size_bytes": 0,
-    "sha256": "hosted-api-unpinned",
-    "license": "Proprietary (Inception Labs API)",
+    "sha256": "none-hosted-api",
+    "license": "Proprietary (Inception Labs API Terms)",
     "alias": "mercury-decide",
-    "runtime_revision": "api.inceptionlabs.ai/v1/systemone",
+    "runtime_revision": "inceptionlabs-api-v1-decisions",
     "hardware": "darwin/arm64 (client -> Inception Labs API)",
     "endpoint_host": "api.inceptionlabs.ai"
   },

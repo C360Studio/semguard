@@ -337,6 +337,10 @@ func TestSecondMeasurementStopRule(t *testing.T) {
 			if err := json.Unmarshal(mb, &savedMerc); err != nil {
 				t.Fatalf("unmarshal %s: %v", mercPath, err)
 			}
+			wantMercLock := DefaultMercuryDecideLock("darwin/arm64 (client -> Inception Labs API)", "api.inceptionlabs.ai")
+			if savedMerc.ModelLock != wantMercLock {
+				t.Fatalf("saved %s model_lock = %+v, want %+v", mercPath, savedMerc.ModelLock, wantMercLock)
+			}
 			recomputedMerc := SummarizeSecondMeasurement(savedMerc.CorpusSHA256, savedMerc.ModelLock, savedMerc.UnsureThreshold, savedMerc.YesThreshold, savedMerc.Passages)
 			if recomputedMerc.PlantedAll != savedMerc.PlantedAll ||
 				recomputedMerc.CleanMatchedTwin != savedMerc.CleanMatchedTwin ||

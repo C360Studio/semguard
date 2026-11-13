@@ -66,6 +66,7 @@ func DefaultKev4BLock(hardware, endpointHost string) SemselectModelLock {
 }
 
 // DefaultMercuryDecideLock returns the provenance metadata for Inception Labs' hosted mercury-decide API (#54 comparison).
+// Revision records the evaluation date (api-2026-11-13) because the hosted API serves unpinned weights at POST /v1/decisions.
 func DefaultMercuryDecideLock(hardware, endpointHost string) SemselectModelLock {
 	if strings.TrimSpace(hardware) == "" {
 		hardware = runtime.GOOS + "/" + runtime.GOARCH + " (client -> Inception Labs API)"

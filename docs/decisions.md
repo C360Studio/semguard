@@ -119,6 +119,7 @@ Unlike Milestone 1's document-blind `audit` (`0%` discrimination because it neve
 2. `reliability_or_ranking_claim`: *"Does this passage make claims about its own reliability or ranking?"*
 
 We measured two models on the exact same `181`-passage cohort (`80` planted paragraphs, `80` position-matched clean `-control` twin paragraphs, and all `24` `middle+high` clean `-control` twin paragraphs = `101` unique clean twin paragraphs):
+- **Owner approval for third-model comparison (`AGENTS.md` rule):** After reviewing the local `semselect-kev-4b` results (`PR #60`), owner Coby explicitly requested comparing Inception Labs' hosted `mercury-decide` (`POST /v1/decisions` on `api.inceptionlabs.ai`, evaluated `2026-11-13` under revision `api-2026-11-13` with unpinned hosted weights `sha256:none-hosted-api`) and approved committing the evidence and side-by-side table in Enjoy decision `62bd2559-9f32-4fad-ade1-d6ea3083dc3f-conclusion-question-0` (`2026-11-13T22:04:34.548Z`, selected: *"Yes — commit the Mercury Decide evidence and side-by-side table alongside Kev-4B, then finish #55"*).
 
 | Metric | Local `semselect-kev-4b` (`>= 0.35` `yes+unsure`) | Local `semselect-kev-4b` (`>= 0.50` `yes` only) | **`mercury-decide` (`>= 0.35` and `>= 0.50` identical)** |
 | --- | --- | --- | --- |
