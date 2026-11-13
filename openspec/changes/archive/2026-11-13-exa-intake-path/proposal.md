@@ -1,6 +1,6 @@
 # Exa intake path and task-independent verification checks
 
-Approved-by:
+Approved-by: Coby (2026-11-13) sha256:a184b55721c4
 
 Track: design (adds `openspec/specs/intake/spec.md`, updates `openspec/specs/verify/spec.md` and `openspec/specs/untrusted/spec.md`, adds exported intake packages, folds in #31, and adds `servicesim` as a test dependency).
 

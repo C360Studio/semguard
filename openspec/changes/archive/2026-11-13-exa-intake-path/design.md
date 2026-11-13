@@ -59,7 +59,7 @@ Goals: build the deterministic Exa intake pipeline (`clean -> parse -> split -> 
 
 ## Open Questions
 
-1. **(owner) Package layout (`Decision 1`):** Single exported package `github.com/c360studio/semguard/intake` (Option a) or split `intake` + `intake/exa` (Option b)?
-2. **(owner) `Clean` active-markup removal (`Decision 2`):** Targeted removal of script/style/active tags, `on*=` attributes, and dangerous URL schemes while preserving `<` in prose/Markdown (Option a), or strip all `<...>` tags (Option b)?
-3. **(owner) Exa outbound links and `off_topic`/`shared_origin` rules (`Decisions 3 & 4`):** Confirm Option (a) for `results[].extras.links` (with `LinksPresent` gating `unlisted_link`) and Option (a) for `off_topic` + `shared_origin` heuristics and provisional band cut-offs?
-4. **(owner) `#31` `Document` unification (`Decision 5`):** Alias `verify.Document = untrusted.Document` and export `VerifyClaim` + `QuoteInPassage` (Option a), or keep two `Document` structs (Option b)?
+1. **(owner) Package layout (`Decision 1`):** **Resolved (Coby, 2026-11-13):** Option (a) — single exported package `github.com/c360studio/semguard/intake`.
+2. **(owner) `Clean` active-markup removal (`Decision 2`):** **Resolved (Coby, 2026-11-13):** Option (a) — targeted removal of `<script>`/`<style>`/active tags, `on*=` attributes, and dangerous URL schemes while preserving `<` in prose/Markdown.
+3. **(owner) Exa outbound links and `off_topic`/`shared_origin` rules (`Decisions 3 & 4`):** **Resolved (Coby, 2026-11-13):** Option (a) — `results[].extras.links` (plus `links`) with `LinksPresent` gating `unlisted_link`, and content-word/shingle rules for `off_topic` & `shared_origin` with provisional band cut-offs (`Low < 2`, `Middle 2..4`, `High >= 5`).
+4. **(owner) `#31` `Document` unification (`Decision 5`):** **Resolved (Coby, 2026-11-13):** Option (a) — alias `verify.Document = untrusted.Document` and export `VerifyClaim` + `QuoteInPassage`.

@@ -1,5 +1,12 @@
 // Package untrusted segments, strips, datamarks, and frames untrusted source
 // documents before they are handed to a reader model.
+//
+// Raw external text may contain characters that Frame and Datamark refuse
+// ("^", "<<report", "<</report") or invisible Unicode format/control characters.
+// Callers sanitize raw text with Strip before calling Frame: Strip normalizes
+// CRLF and CR to LF, drops invalid UTF-8 bytes, removes Unicode format (Cf) and
+// control (Cc, except '\n' and '\t') runes, and removes "^", "<<report", and
+// "<</report" while returning an OffsetMap back into the original bytes.
 package untrusted
 
 import (
@@ -19,8 +26,8 @@ type Block = string
 
 // Document is one untrusted source text.
 type Document struct {
-	ID   string
-	Text string
+	ID   string `json:"id"`
+	Text string `json:"text"`
 }
 
 // Task is the trusted half of the prompt: what the reader is asked to do.

@@ -13,6 +13,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/c360studio/semguard/untrusted"
 )
 
 // Kind identifies the category of a verification violation.
@@ -27,11 +29,8 @@ const (
 	KindLink Kind = "link"
 )
 
-// Document is one source text shown to the reader.
-type Document struct {
-	ID   string `json:"id"`
-	Text string `json:"text"`
-}
+// Document is one source text shown to the reader, unified with untrusted.Document.
+type Document = untrusted.Document
 
 // Score is the reader's 0..10 score for one document.
 type Score struct {
@@ -284,6 +283,57 @@ func parseObjectFields(b []byte) ([]rawField, error) {
 	return fields, nil
 }
 
+// QuoteInPassage verifies that quote (after normalizing datamark '^' to space)
+// appears as a non-empty substring of passageText and, when quoteSHA256 is
+// non-empty, that its lowercase hex SHA-256 matches the normalized quote's SHA-256.
+// It returns the normalized quote and its lowercase hex SHA-256, or an error.
+func QuoteInPassage(quote, quoteSHA256, passageText string) (normQuote, wantHash string, err error) {
+	if quote == "" {
+		return "", "", fmt.Errorf("missing quote")
+	}
+	normQuote = strings.ReplaceAll(quote, "^", " ")
+	sum := sha256.Sum256([]byte(normQuote))
+	wantHash = hex.EncodeToString(sum[:])
+	if !strings.Contains(passageText, normQuote) {
+		return "", "", fmt.Errorf("quote not found in paragraph")
+	}
+	if quoteSHA256 != "" && strings.ToLower(quoteSHA256) != wantHash {
+		return "", "", fmt.Errorf("quote_sha256 %q does not match normalized quote sha256 %s", quoteSHA256, wantHash)
+	}
+	return normQuote, wantHash, nil
+}
+
+// VerifyClaim verifies a single paragraph-grounded quote against docs without
+// requiring the score-compare schema. It checks that docID resolves in docs,
+// paragraph is a valid 1-based index into strings.Split(doc.Text, "\n\n"), and
+// QuoteInPassage succeeds on that paragraph.
+//
+//nolint:revive // VerifyClaim is intentionally distinct from the verify.Claim struct.
+func VerifyClaim(docID string, paragraph int, quote, quoteSHA256 string, docs []Document) error {
+	docMap := make(map[string]Document, len(docs))
+	for _, d := range docs {
+		docMap[d.ID] = d
+	}
+	_, _, err := resolveClaimQuote(docID, paragraph, quote, quoteSHA256, docMap)
+	return err
+}
+
+func resolveClaimQuote(docID string, paraIdx int, quote, quoteSHA256 string, docMap map[string]Document) (normQuote, wantHash string, err error) {
+	doc, ok := docMap[docID]
+	if !ok {
+		return "", "", fmt.Errorf("unknown doc_id %q", docID)
+	}
+	paras := strings.Split(doc.Text, "\n\n")
+	if paraIdx < 1 || paraIdx > len(paras) {
+		return "", "", fmt.Errorf("(%s): paragraph %d outside 1..%d", docID, paraIdx, len(paras))
+	}
+	normQuote, wantHash, err = QuoteInPassage(quote, quoteSHA256, paras[paraIdx-1])
+	if err != nil {
+		return "", "", fmt.Errorf("(%s paragraph %d): %w", docID, paraIdx, err)
+	}
+	return normQuote, wantHash, nil
+}
+
 func verifyClaim(idx int, c rawClaim, docMap map[string]Document) (Claim, []Violation) {
 	var vs []Violation
 	if c.DocID == nil || *c.DocID == "" {
@@ -304,50 +354,18 @@ func verifyClaim(idx int, c rawClaim, docMap map[string]Document) (Claim, []Viol
 
 	docID := *c.DocID
 	paraIdx := *c.Paragraph
-	normQuote := strings.ReplaceAll(*c.Quote, "^", " ")
-	sum := sha256.Sum256([]byte(normQuote))
-	wantHash := hex.EncodeToString(sum[:])
-
-	doc, ok := docMap[docID]
-	if !ok {
+	givenHash := ""
+	if c.QuoteSHA256 != nil {
+		givenHash = *c.QuoteSHA256
+	}
+	normQuote, wantHash, err := resolveClaimQuote(docID, paraIdx, *c.Quote, givenHash, docMap)
+	if err != nil {
 		return Claim{}, []Violation{{
 			Kind:      KindClaim,
 			DocID:     docID,
 			Paragraph: paraIdx,
-			Message:   fmt.Sprintf("claims[%d]: unknown doc_id %q", idx, docID),
+			Message:   fmt.Sprintf("claims[%d] %s", idx, err.Error()),
 		}}
-	}
-
-	paras := strings.Split(doc.Text, "\n\n")
-	if paraIdx < 1 || paraIdx > len(paras) {
-		return Claim{}, []Violation{{
-			Kind:      KindClaim,
-			DocID:     docID,
-			Paragraph: paraIdx,
-			Message:   fmt.Sprintf("claims[%d] (%s): paragraph %d outside 1..%d", idx, docID, paraIdx, len(paras)),
-		}}
-	}
-
-	paraText := paras[paraIdx-1]
-	if !strings.Contains(paraText, normQuote) {
-		return Claim{}, []Violation{{
-			Kind:      KindClaim,
-			DocID:     docID,
-			Paragraph: paraIdx,
-			Message:   fmt.Sprintf("claims[%d] (%s paragraph %d): quote not found in paragraph", idx, docID, paraIdx),
-		}}
-	}
-
-	if c.QuoteSHA256 != nil && *c.QuoteSHA256 != "" {
-		given := strings.ToLower(*c.QuoteSHA256)
-		if given != wantHash {
-			return Claim{}, []Violation{{
-				Kind:      KindClaim,
-				DocID:     docID,
-				Paragraph: paraIdx,
-				Message:   fmt.Sprintf("claims[%d] (%s paragraph %d): quote_sha256 %q does not match normalized quote sha256 %s", idx, docID, paraIdx, *c.QuoteSHA256, wantHash),
-			}}
-		}
 	}
 
 	return Claim{
