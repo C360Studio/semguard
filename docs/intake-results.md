@@ -111,3 +111,21 @@
 | Escalated (`middle+high` in `#53`) | **5/5 (100.0%; 0/0/5; @0.50: 5/5, 100.0%)** | 1/2 (50.0%; 1/1/0; @0.50: 0/2, 0.0%) |
 | `low` band in `#53` (missed by band gate) | **5/5 (100.0%; 0/0/5; @0.50: 5/5, 100.0%)** | 4/10 (40.0%; 6/3/1; @0.50: 1/10, 10.0%) |
 | Zero check hits (`Checks == []`) | **1/1 (100.0%; 0/0/1; @0.50: 1/1, 100.0%)** | n/a |
+
+## 9. Side-by-Side Decision Model Comparison: `semselect-kev-4b` vs `mercury-decide` (`#54`)
+
+*Table caption: Small authored evaluations are not benchmarks. Side-by-side comparison on the exact same `181`-passage `#54` cohort (`80` planted paragraphs, `80` position-matched clean `-control` twins, and `101` total evaluated clean twins) using the identical two closed `noul` questions and `POST /v1/decisions` contract.*
+
+- **Comparison model:** `mercury-decide` (`inception/mercury-decide`, endpoint `https://api.inceptionlabs.ai`, `Inception Labs API (mercury-decide)`), `p50 = 201 ms`, `p95 = 627 ms` (`min = 130 ms`, `max = 770 ms`, `total = 48.8 s`).
+- **Sharp calibration (`0` `unsure` outcomes):** Unlike `semselect-kev-4b` (`75` `unsure` across `181` passages), `mercury-decide` returned **`0` `unsure` outcomes** (`[0.35, 0.50)`), so `yes + unsure >= 0.35` and `yes >= 0.50` are identical: **`51/80` (`63.7%`)** planted passages vs **`2/80` (`2.5%`)** position-matched clean `-control` twins (delta **`+61.2` pp**; **`4/101` (`4.0%`)** across all `101` evaluated clean twins).
+- **Quiet `low`-band & zero-check planted passages:** `mercury-decide` flagged **`26/45` (`57.8%`)** `low`-band planted passages (`10/10` `social`, `11/30` `fragmented` covering `10/10` `fragmented` cases, and `5/5` quiet `rank`) vs **`2/77` (`2.6%`)** `low`-band clean twins, and **`15/31` (`48.4%`)** planted passages where *zero* deterministic checks fired (`0/52` or `0.0%` false flags on zero-check clean passages).
+
+| Class | `semselect-kev-4b` Planted (`>=0.35` / `@0.50`) | `semselect-kev-4b` Clean Twin (`>=0.35` / `@0.50`) | `mercury-decide` Planted (`>=0.35` / `@0.50`) | `mercury-decide` Clean Twin (`>=0.35` / `@0.50`) | `mercury-decide` Planted `low` Band (`@0.50`) |
+| --- | --- | --- | --- | --- | --- |
+| `override` | 10/10 (100.0%; 0/1/9; @0.50: 9/10, 90.0%) | 5/10 (50.0%; 5/3/2; @0.50: 2/10, 20.0%) | **10/10 (100.0%; 0/0/10; @0.50: 10/10, 100.0%)** | 1/10 (10.0%; 9/0/1; @0.50: 1/10, 10.0%) | 0/0 (n/a) |
+| `exfil` | 10/10 (100.0%; 0/10/0; @0.50: 0/10, 0.0%) | 5/10 (50.0%; 5/5/0; @0.50: 0/10, 0.0%) | **0/10 (0.0%; 10/0/0; @0.50: 0/10, 0.0%)** | 0/10 (0.0%; 10/0/0; @0.50: 0/10, 0.0%) | 0/0 (n/a) |
+| `social` | 10/10 (100.0%; 0/1/9; @0.50: 9/10, 90.0%) | 3/10 (30.0%; 7/2/1; @0.50: 1/10, 10.0%) | **10/10 (100.0%; 0/0/10; @0.50: 10/10, 100.0%)** | 0/10 (0.0%; 10/0/0; @0.50: 0/10, 0.0%) | 10/10 (100.0%; @0.50: 10/10) |
+| `fragmented` | 20/30 (66.7%; 10/17/3; @0.50: 3/30, 10.0%) | 7/30 (23.3%; 23/7/0; @0.50: 0/30, 0.0%) | **11/30 (36.7%; 19/0/11; @0.50: 11/30, 36.7%)** | 0/30 (0.0%; 30/0/0; @0.50: 0/30, 0.0%) | 11/30 (36.7%; @0.50: 11/30) |
+| `framing` | 10/10 (100.0%; 0/9/1; @0.50: 1/10, 10.0%) | 3/10 (30.0%; 7/3/0; @0.50: 0/10, 0.0%) | **10/10 (100.0%; 0/0/10; @0.50: 10/10, 100.0%)** | 0/10 (0.0%; 10/0/0; @0.50: 0/10, 0.0%) | 0/0 (n/a) |
+| `rank` | 10/10 (100.0%; 0/0/10; @0.50: 10/10, 100.0%) | 4/10 (40.0%; 6/3/1; @0.50: 1/10, 10.0%) | **10/10 (100.0%; 0/0/10; @0.50: 10/10, 100.0%)** | 1/10 (10.0%; 9/0/1; @0.50: 1/10, 10.0%) | 5/5 (100.0%; @0.50: 5/5) |
+| **Total** | **70/80 (87.5%; 10/38/32; @0.50: 32/80, 40.0%)** | **27/80 (33.8%; 53/23/4; @0.50: 4/80, 5.0%)** | **51/80 (63.7%; 29/0/51; @0.50: 51/80, 63.7%)** | **2/80 (2.5%; 78/0/2; @0.50: 2/80, 2.5%)** | **26/45 (57.8%; @0.50: 26/45)** |
