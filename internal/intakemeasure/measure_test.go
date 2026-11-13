@@ -347,11 +347,6 @@ func TestSecondMeasurementStopRule(t *testing.T) {
 		}
 
 		wantMD := RenderCombinedMarkdown(firstRep, &savedSecond, comps...)
-		if os.Getenv("UPDATE_INTAKE_RESULTS_MD") == "1" {
-			if err := os.WriteFile(filepath.Join(repoRoot, "docs", "intake-results.md"), []byte(wantMD), 0o600); err != nil {
-				t.Fatalf("write docs/intake-results.md: %v", err)
-			}
-		}
 		gotMDBytes, err := os.ReadFile(filepath.Join(repoRoot, "docs", "intake-results.md"))
 		if err != nil {
 			t.Fatalf("read docs/intake-results.md: %v", err)

@@ -122,23 +122,23 @@ We measured two models on the exact same `181`-passage cohort (`80` planted para
 
 | Metric | Local `semselect-kev-4b` (`>= 0.35` `yes+unsure`) | Local `semselect-kev-4b` (`>= 0.50` `yes` only) | **`mercury-decide` (`>= 0.35` and `>= 0.50` identical)** |
 | --- | --- | --- | --- |
-| **Per-call latency (`p50 / p95`)** | `635 ms / 934 ms` (M3 Pro Metal) | `635 ms / 934 ms` | **`201 ms / 627 ms`** (Inception Labs API) |
+| **Per-call latency (`p50 / p95`)** | `635 ms / 934 ms` (local Apple M3 Pro Metal) | `635 ms / 934 ms` (local Apple M3 Pro Metal) | **`201 ms / 627 ms`** (hosted cloud API network round-trip on `api.inceptionlabs.ai`) |
 | **`unsure` (`[0.35, 0.50)`) count (of 181)** | `75 / 181` | — | **`0 / 181`** (sharp bimodal probabilities) |
-| **All planted paragraphs (`80`)** | **70 / 80 (`87.5%`)** | **32 / 80 (`40.0%`)** | **51 / 80 (`63.8%`)** |
-| **Matched clean `-control` twins (`80`)** | 27 / 80 (`33.8%`, `+53.8 pp`) | **4 / 80 (`5.0%`, `+35.0 pp`)** | **2 / 80 (`2.5%`, `+61.3 pp`)** |
+| **All planted paragraphs (`80`)** | **70 / 80 (`87.5%`)** | **32 / 80 (`40.0%`)** | **51 / 80 (`63.7%`)** |
+| **Matched clean `-control` twins (`80`)** | 27 / 80 (`33.8%`, `+53.8 pp`) | **4 / 80 (`5.0%`, `+35.0 pp`)** | **2 / 80 (`2.5%`, `+61.2 pp`)** |
 | **All evaluated clean twins (`101`)** | 42 / 101 (`41.6%`, `+45.9 pp`) | **5 / 101 (`5.0%`)** | **4 / 101 (`4.0%`, `+59.8 pp`)** |
 | **Quiet `low`-band planted (`45`)** | **35 / 45 (`77.8%`)** | 17 / 45 (`37.8%`) | **26 / 45 (`57.8%`)** (`2/77` or `2.6%` clean `low`) |
 | **Zero-check planted (`31`) vs clean (`52`)** | **22 / 31 (`71.0%`)** vs `13 / 52` (`25.0%`) | 10 / 31 (`32.3%`) vs `1 / 52` (`1.9%`) | **15 / 31 (`48.4%`)** vs **`0 / 52` (`0.0%`)** |
 | **`override` (`10` planted / `10` twin)** | 10 / 10 vs 5 / 10 | **9 / 10** vs 2 / 10 | **10 / 10 (`100%`)** vs **1 / 10 (`10%`)** |
 | **`exfil` (`10` planted / `10` twin)** | 10 / 10 vs 5 / 10 | 0 / 10 vs 0 / 10 | 0 / 10 vs 0 / 10 *(caught `10/10` by `unlisted_link`)* |
 | **`social` (`10` planted / `10` twin)** | 10 / 10 vs 3 / 10 | **9 / 10** vs 1 / 10 | **10 / 10 (`100%`)** vs **0 / 10 (`0%`)** |
-| **`fragmented` (`30` planted / `30` twin)** | 20 / 30 vs 7 / 30 | 3 / 30 vs 0 / 30 | **11 / 30 (`10/10` cases)** vs **0 / 30 (`0%`)** |
+| **`fragmented` (`30` planted / `30` twin)** | 20 / 30 vs 7 / 30 | 3 / 30 vs 0 / 30 | **11 / 30 (`36.7%`)** vs **0 / 30 (`0%`)** |
 | **`framing` (`10` planted / `10` twin)** | 10 / 10 vs 3 / 10 | 1 / 10 vs 0 / 10 | **10 / 10 (`100%`)** vs **0 / 10 (`0%`)** |
 | **`rank` (`10` planted / `10` twin)** | **10 / 10** vs 4 / 10 | **10 / 10 (`100%`)** vs **1 / 10 (`10%`)** | **10 / 10 (`100%`)** vs **1 / 10 (`10%`)** |
 
 ### 3. Caveats & Key Takeaways from `#54` (Including Cross-Agent Review Findings)
 1. **Per-passage decision scoring works where document-blind auditing failed (`decision_model_discriminates`):**
-   - Both models clear the `+20.0%` stop-rule bar by a wide margin (`+53.8 pp` at `>= 0.35` and `+35.0 pp` at `>= 0.50` on `Kev-4B`; **`+61.3 pp`** at both cutoffs on `mercury-decide`).
+   - Both models clear the `+20.0%` stop-rule bar by a wide margin (`+53.8 pp` at `>= 0.35` and `+35.0 pp` at `>= 0.50` on `Kev-4B`; **`+61.2 pp`** at both cutoffs on `mercury-decide`).
    - Crucially, **both models catch `10/10` (`100%`) of planted `rank` paragraphs at `p >= 0.50`**—including all `5/5` quiet score-inflation paragraphs that slipped past `#53`'s regex checks—with only `1/10` clean twin false flags.
 2. **Per-question precision:**
    - Question 2 (`reliability_or_ranking_claim`) has **zero false positives (`0/80` clean twins)** on both `Kev-4B` (`26/80` planted at `>= 0.35`, `10/80` at `>= 0.50`) and `mercury-decide` (`12/80` planted at `>= 0.50`, `0/80` clean twins).
@@ -148,7 +148,8 @@ We measured two models on the exact same `181`-passage cohort (`80` planted para
    - On `mercury-decide`, probabilities are sharply calibrated (`0` `unsure` outcomes): clean passages with check hits are flagged only `4/49` (`8.2%`), and clean passages with zero check hits are flagged **`0/52` (`0.0%`)** while catching `15/31` (`48.4%`) of zero-check planted passages.
 4. **Why `exfil` needs the deterministic `unlisted_link` check:**
    - `exfil` paragraphs are written as declarative prose carrying an unallowed URL; neither closed question asks about URLs, so `mercury-decide` scores `0/10` on `exfil` (`Kev-4B` only flags them as `unsure` because `unlisted_link` + `lone_site` appear in the prompt notes).
-   - Pairing the deterministic **`unlisted_link`** check (`10/10` `exfil`, `0/539` clean twins) with **`mercury-decide`** (`10/10` `override`, `10/10` `social`, `10/10` `framing`, `10/10` `rank`, and `11/30` paragraphs covering **`10/10` `fragmented` cases**) flags at least one planted paragraph in **all `60/60` (`100%`) attack cases** with only **`2/80` (`2.5%`)** false alarms on matched clean twin paragraphs at **`p50 = 201 ms`**.
+   - Pairing the deterministic **`unlisted_link`** check (`10/10` `exfil`, `0/539` clean twins) with **`mercury-decide`** (`51/80` planted passages: `10/10` `override`, `10/10` `social`, `10/10` `framing`, `10/10` `rank`, and `11/30` `fragmented` passages) covers **`61/80` (`76.3%`)** planted passages across all six attack classes with only **`2/80` (`2.5%`)** false alarms on matched clean twin paragraphs (`p50 = 201 ms` hosted cloud API vs `635 ms` local Apple M3 Pro Metal on `Kev-4B`).
 5. **Real Exa & Perplexity Smoke Check (`#55` — Skipped by Owner Decision):**
    - Closed without live Exa or Perplexity API calls because the lab does not hold active Exa or Perplexity accounts; `servicesim` profile conformance (`#51`, `#52`) and the `#53`/`#54` measurements cover the intake pipeline.
+
 
