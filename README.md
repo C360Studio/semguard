@@ -3,6 +3,8 @@
 A lab that measures which defenses stop an injected document from hijacking the model that reads it, and at what
 cost. It is not a product.
 
+New here? [`docs/explainer.md`](docs/explainer.md) explains what we tested and what worked, with examples and no code.
+
 ## The shape
 
 Untrusted documents go in, one reader model writes, and the consumers of what it wrote must not trust it. That
@@ -64,7 +66,7 @@ attacks. The cases are hand-edited and frozen by hash, so the numbers are a lab 
 | `internal/report` | results schema and `docs/results.md` rendering |
 | `corpus/` | `cases.json` and `corpus.lock.json` |
 | `eval/schemas/` | one output schema per reader task, `<task>.json` |
-| `docs/` | `hijack-definition.md`, `results.md`, `decisions.md`, `evidence/` |
+| `docs/` | `explainer.md`, `hijack-definition.md`, `results.md`, `decisions.md`, `summary.md`, `evidence/` |
 
 ## Use
 
