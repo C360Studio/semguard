@@ -1,0 +1,1875 @@
+{
+  "corpus_sha256": "0ee5145661e4e39c772d509332f12e98fb5a82747cfb42f414fc9c601b4a90f9",
+  "total_cases": 140,
+  "attack_cases": 60,
+  "control_twin_cases": 60,
+  "benign_cases": 20,
+  "initial_weights": {
+    "encoded_blob": 3,
+    "fake_markers": 3,
+    "lone_site": 1,
+    "off_topic": 1,
+    "self_rank_claim": 2,
+    "shared_origin": 1,
+    "talks_to_reader": 3,
+    "unlisted_link": 2
+  },
+  "initial_middle_cutoff": 2,
+  "initial_high_cutoff": 5,
+  "tuned_weights": {
+    "encoded_blob": 3,
+    "fake_markers": 3,
+    "lone_site": 0,
+    "off_topic": 2,
+    "self_rank_claim": 2,
+    "shared_origin": 0,
+    "talks_to_reader": 3,
+    "unlisted_link": 2
+  },
+  "tuned_middle_cutoff": 2,
+  "tuned_high_cutoff": 5,
+  "paragraph_passages": {
+    "granularity": "paragraph",
+    "description": "1 passage per \"\\n\\n\" paragraph (maps 1-to-1 to injected_paragraphs across all 140 cases)",
+    "classes": [
+      {
+        "class": "override",
+        "is_attack_class": true,
+        "case_count": 10,
+        "control_case_count": 10,
+        "planted_total": 10,
+        "planted_any_check": 10,
+        "planted_by_check": {
+          "encoded_blob": 0,
+          "fake_markers": 0,
+          "lone_site": 0,
+          "off_topic": 9,
+          "self_rank_claim": 0,
+          "shared_origin": 0,
+          "talks_to_reader": 10,
+          "unlisted_link": 0
+        },
+        "planted_initial": {
+          "total": 10,
+          "low": 0,
+          "middle": 10,
+          "high": 0,
+          "middle_or_high": 10,
+          "middle_high_rate": 1
+        },
+        "planted_tuned": {
+          "total": 10,
+          "low": 0,
+          "middle": 1,
+          "high": 9,
+          "middle_or_high": 10,
+          "middle_high_rate": 1
+        },
+        "clean_twin_total": 92,
+        "clean_twin_any_check": 31,
+        "clean_twin_by_check": {
+          "encoded_blob": 0,
+          "fake_markers": 0,
+          "lone_site": 10,
+          "off_topic": 24,
+          "self_rank_claim": 0,
+          "shared_origin": 0,
+          "talks_to_reader": 0,
+          "unlisted_link": 0
+        },
+        "clean_twin_initial": {
+          "total": 92,
+          "low": 89,
+          "middle": 3,
+          "high": 0,
+          "middle_or_high": 3,
+          "middle_high_rate": 0.03260869565217391
+        },
+        "clean_twin_tuned": {
+          "total": 92,
+          "low": 68,
+          "middle": 24,
+          "high": 0,
+          "middle_or_high": 24,
+          "middle_high_rate": 0.2608695652173913
+        },
+        "clean_all_total": 184,
+        "clean_all_any_check": 62,
+        "clean_all_by_check": {
+          "encoded_blob": 0,
+          "fake_markers": 0,
+          "lone_site": 20,
+          "off_topic": 48,
+          "self_rank_claim": 0,
+          "shared_origin": 0,
+          "talks_to_reader": 0,
+          "unlisted_link": 0
+        },
+        "clean_all_initial": {
+          "total": 184,
+          "low": 178,
+          "middle": 6,
+          "high": 0,
+          "middle_or_high": 6,
+          "middle_high_rate": 0.03260869565217391
+        },
+        "clean_all_tuned": {
+          "total": 184,
+          "low": 136,
+          "middle": 48,
+          "high": 0,
+          "middle_or_high": 48,
+          "middle_high_rate": 0.2608695652173913
+        }
+      },
+      {
+        "class": "exfil",
+        "is_attack_class": true,
+        "case_count": 10,
+        "control_case_count": 10,
+        "planted_total": 10,
+        "planted_any_check": 10,
+        "planted_by_check": {
+          "encoded_blob": 0,
+          "fake_markers": 0,
+          "lone_site": 10,
+          "off_topic": 4,
+          "self_rank_claim": 0,
+          "shared_origin": 0,
+          "talks_to_reader": 0,
+          "unlisted_link": 10
+        },
+        "planted_initial": {
+          "total": 10,
+          "low": 0,
+          "middle": 10,
+          "high": 0,
+          "middle_or_high": 10,
+          "middle_high_rate": 1
+        },
+        "planted_tuned": {
+          "total": 10,
+          "low": 0,
+          "middle": 10,
+          "high": 0,
+          "middle_or_high": 10,
+          "middle_high_rate": 1
+        },
+        "clean_twin_total": 89,
+        "clean_twin_any_check": 21,
+        "clean_twin_by_check": {
+          "encoded_blob": 0,
+          "fake_markers": 0,
+          "lone_site": 1,
+          "off_topic": 13,
+          "self_rank_claim": 0,
+          "shared_origin": 8,
+          "talks_to_reader": 0,
+          "unlisted_link": 0
+        },
+        "clean_twin_initial": {
+          "total": 89,
+          "low": 88,
+          "middle": 1,
+          "high": 0,
+          "middle_or_high": 1,
+          "middle_high_rate": 0.011235955056179775
+        },
+        "clean_twin_tuned": {
+          "total": 89,
+          "low": 76,
+          "middle": 13,
+          "high": 0,
+          "middle_or_high": 13,
+          "middle_high_rate": 0.14606741573033707
+        },
+        "clean_all_total": 178,
+        "clean_all_any_check": 42,
+        "clean_all_by_check": {
+          "encoded_blob": 0,
+          "fake_markers": 0,
+          "lone_site": 2,
+          "off_topic": 26,
+          "self_rank_claim": 0,
+          "shared_origin": 16,
+          "talks_to_reader": 0,
+          "unlisted_link": 0
+        },
+        "clean_all_initial": {
+          "total": 178,
+          "low": 176,
+          "middle": 2,
+          "high": 0,
+          "middle_or_high": 2,
+          "middle_high_rate": 0.011235955056179775
+        },
+        "clean_all_tuned": {
+          "total": 178,
+          "low": 152,
+          "middle": 26,
+          "high": 0,
+          "middle_or_high": 26,
+          "middle_high_rate": 0.14606741573033707
+        }
+      },
+      {
+        "class": "social",
+        "is_attack_class": true,
+        "case_count": 10,
+        "control_case_count": 10,
+        "planted_total": 10,
+        "planted_any_check": 2,
+        "planted_by_check": {
+          "encoded_blob": 0,
+          "fake_markers": 0,
+          "lone_site": 0,
+          "off_topic": 2,
+          "self_rank_claim": 0,
+          "shared_origin": 0,
+          "talks_to_reader": 0,
+          "unlisted_link": 0
+        },
+        "planted_initial": {
+          "total": 10,
+          "low": 10,
+          "middle": 0,
+          "high": 0,
+          "middle_or_high": 0,
+          "middle_high_rate": 0
+        },
+        "planted_tuned": {
+          "total": 10,
+          "low": 8,
+          "middle": 2,
+          "high": 0,
+          "middle_or_high": 2,
+          "middle_high_rate": 0.2
+        },
+        "clean_twin_total": 90,
+        "clean_twin_any_check": 34,
+        "clean_twin_by_check": {
+          "encoded_blob": 0,
+          "fake_markers": 0,
+          "lone_site": 10,
+          "off_topic": 32,
+          "self_rank_claim": 0,
+          "shared_origin": 0,
+          "talks_to_reader": 0,
+          "unlisted_link": 0
+        },
+        "clean_twin_initial": {
+          "total": 90,
+          "low": 82,
+          "middle": 8,
+          "high": 0,
+          "middle_or_high": 8,
+          "middle_high_rate": 0.08888888888888889
+        },
+        "clean_twin_tuned": {
+          "total": 90,
+          "low": 58,
+          "middle": 32,
+          "high": 0,
+          "middle_or_high": 32,
+          "middle_high_rate": 0.35555555555555557
+        },
+        "clean_all_total": 180,
+        "clean_all_any_check": 68,
+        "clean_all_by_check": {
+          "encoded_blob": 0,
+          "fake_markers": 0,
+          "lone_site": 20,
+          "off_topic": 64,
+          "self_rank_claim": 0,
+          "shared_origin": 0,
+          "talks_to_reader": 0,
+          "unlisted_link": 0
+        },
+        "clean_all_initial": {
+          "total": 180,
+          "low": 164,
+          "middle": 16,
+          "high": 0,
+          "middle_or_high": 16,
+          "middle_high_rate": 0.08888888888888889
+        },
+        "clean_all_tuned": {
+          "total": 180,
+          "low": 116,
+          "middle": 64,
+          "high": 0,
+          "middle_or_high": 64,
+          "middle_high_rate": 0.35555555555555557
+        }
+      },
+      {
+        "class": "fragmented",
+        "is_attack_class": true,
+        "case_count": 10,
+        "control_case_count": 10,
+        "planted_total": 30,
+        "planted_any_check": 8,
+        "planted_by_check": {
+          "encoded_blob": 0,
+          "fake_markers": 0,
+          "lone_site": 0,
+          "off_topic": 8,
+          "self_rank_claim": 0,
+          "shared_origin": 0,
+          "talks_to_reader": 0,
+          "unlisted_link": 0
+        },
+        "planted_initial": {
+          "total": 30,
+          "low": 30,
+          "middle": 0,
+          "high": 0,
+          "middle_or_high": 0,
+          "middle_high_rate": 0
+        },
+        "planted_tuned": {
+          "total": 30,
+          "low": 22,
+          "middle": 8,
+          "high": 0,
+          "middle_or_high": 8,
+          "middle_high_rate": 0.26666666666666666
+        },
+        "clean_twin_total": 90,
+        "clean_twin_any_check": 26,
+        "clean_twin_by_check": {
+          "encoded_blob": 0,
+          "fake_markers": 0,
+          "lone_site": 10,
+          "off_topic": 23,
+          "self_rank_claim": 0,
+          "shared_origin": 0,
+          "talks_to_reader": 0,
+          "unlisted_link": 0
+        },
+        "clean_twin_initial": {
+          "total": 90,
+          "low": 83,
+          "middle": 7,
+          "high": 0,
+          "middle_or_high": 7,
+          "middle_high_rate": 0.07777777777777778
+        },
+        "clean_twin_tuned": {
+          "total": 90,
+          "low": 67,
+          "middle": 23,
+          "high": 0,
+          "middle_or_high": 23,
+          "middle_high_rate": 0.25555555555555554
+        },
+        "clean_all_total": 180,
+        "clean_all_any_check": 52,
+        "clean_all_by_check": {
+          "encoded_blob": 0,
+          "fake_markers": 0,
+          "lone_site": 20,
+          "off_topic": 46,
+          "self_rank_claim": 0,
+          "shared_origin": 0,
+          "talks_to_reader": 0,
+          "unlisted_link": 0
+        },
+        "clean_all_initial": {
+          "total": 180,
+          "low": 166,
+          "middle": 14,
+          "high": 0,
+          "middle_or_high": 14,
+          "middle_high_rate": 0.07777777777777778
+        },
+        "clean_all_tuned": {
+          "total": 180,
+          "low": 134,
+          "middle": 46,
+          "high": 0,
+          "middle_or_high": 46,
+          "middle_high_rate": 0.25555555555555554
+        }
+      },
+      {
+        "class": "framing",
+        "is_attack_class": true,
+        "case_count": 10,
+        "control_case_count": 10,
+        "planted_total": 10,
+        "planted_any_check": 10,
+        "planted_by_check": {
+          "encoded_blob": 0,
+          "fake_markers": 8,
+          "lone_site": 0,
+          "off_topic": 8,
+          "self_rank_claim": 0,
+          "shared_origin": 0,
+          "talks_to_reader": 6,
+          "unlisted_link": 0
+        },
+        "planted_initial": {
+          "total": 10,
+          "low": 0,
+          "middle": 6,
+          "high": 4,
+          "middle_or_high": 10,
+          "middle_high_rate": 1
+        },
+        "planted_tuned": {
+          "total": 10,
+          "low": 0,
+          "middle": 2,
+          "high": 8,
+          "middle_or_high": 10,
+          "middle_high_rate": 1
+        },
+        "clean_twin_total": 88,
+        "clean_twin_any_check": 28,
+        "clean_twin_by_check": {
+          "encoded_blob": 0,
+          "fake_markers": 0,
+          "lone_site": 20,
+          "off_topic": 11,
+          "self_rank_claim": 0,
+          "shared_origin": 0,
+          "talks_to_reader": 0,
+          "unlisted_link": 0
+        },
+        "clean_twin_initial": {
+          "total": 88,
+          "low": 85,
+          "middle": 3,
+          "high": 0,
+          "middle_or_high": 3,
+          "middle_high_rate": 0.03409090909090909
+        },
+        "clean_twin_tuned": {
+          "total": 88,
+          "low": 77,
+          "middle": 11,
+          "high": 0,
+          "middle_or_high": 11,
+          "middle_high_rate": 0.125
+        },
+        "clean_all_total": 176,
+        "clean_all_any_check": 56,
+        "clean_all_by_check": {
+          "encoded_blob": 0,
+          "fake_markers": 0,
+          "lone_site": 40,
+          "off_topic": 22,
+          "self_rank_claim": 0,
+          "shared_origin": 0,
+          "talks_to_reader": 0,
+          "unlisted_link": 0
+        },
+        "clean_all_initial": {
+          "total": 176,
+          "low": 170,
+          "middle": 6,
+          "high": 0,
+          "middle_or_high": 6,
+          "middle_high_rate": 0.03409090909090909
+        },
+        "clean_all_tuned": {
+          "total": 176,
+          "low": 154,
+          "middle": 22,
+          "high": 0,
+          "middle_or_high": 22,
+          "middle_high_rate": 0.125
+        }
+      },
+      {
+        "class": "rank",
+        "is_attack_class": true,
+        "case_count": 10,
+        "control_case_count": 10,
+        "planted_total": 10,
+        "planted_any_check": 9,
+        "planted_by_check": {
+          "encoded_blob": 0,
+          "fake_markers": 0,
+          "lone_site": 0,
+          "off_topic": 6,
+          "self_rank_claim": 5,
+          "shared_origin": 0,
+          "talks_to_reader": 0,
+          "unlisted_link": 0
+        },
+        "planted_initial": {
+          "total": 10,
+          "low": 5,
+          "middle": 5,
+          "high": 0,
+          "middle_or_high": 5,
+          "middle_high_rate": 0.5
+        },
+        "planted_tuned": {
+          "total": 10,
+          "low": 1,
+          "middle": 9,
+          "high": 0,
+          "middle_or_high": 9,
+          "middle_high_rate": 0.9
+        },
+        "clean_twin_total": 90,
+        "clean_twin_any_check": 31,
+        "clean_twin_by_check": {
+          "encoded_blob": 0,
+          "fake_markers": 0,
+          "lone_site": 10,
+          "off_topic": 23,
+          "self_rank_claim": 0,
+          "shared_origin": 0,
+          "talks_to_reader": 0,
+          "unlisted_link": 0
+        },
+        "clean_twin_initial": {
+          "total": 90,
+          "low": 88,
+          "middle": 2,
+          "high": 0,
+          "middle_or_high": 2,
+          "middle_high_rate": 0.022222222222222223
+        },
+        "clean_twin_tuned": {
+          "total": 90,
+          "low": 67,
+          "middle": 23,
+          "high": 0,
+          "middle_or_high": 23,
+          "middle_high_rate": 0.25555555555555554
+        },
+        "clean_all_total": 180,
+        "clean_all_any_check": 63,
+        "clean_all_by_check": {
+          "encoded_blob": 0,
+          "fake_markers": 0,
+          "lone_site": 20,
+          "off_topic": 47,
+          "self_rank_claim": 0,
+          "shared_origin": 0,
+          "talks_to_reader": 0,
+          "unlisted_link": 0
+        },
+        "clean_all_initial": {
+          "total": 180,
+          "low": 176,
+          "middle": 4,
+          "high": 0,
+          "middle_or_high": 4,
+          "middle_high_rate": 0.022222222222222223
+        },
+        "clean_all_tuned": {
+          "total": 180,
+          "low": 133,
+          "middle": 47,
+          "high": 0,
+          "middle_or_high": 47,
+          "middle_high_rate": 0.2611111111111111
+        }
+      },
+      {
+        "class": "quoted",
+        "is_attack_class": false,
+        "case_count": 10,
+        "control_case_count": 0,
+        "planted_total": 0,
+        "planted_any_check": 0,
+        "planted_by_check": {
+          "encoded_blob": 0,
+          "fake_markers": 0,
+          "lone_site": 0,
+          "off_topic": 0,
+          "self_rank_claim": 0,
+          "shared_origin": 0,
+          "talks_to_reader": 0,
+          "unlisted_link": 0
+        },
+        "planted_initial": {
+          "total": 0,
+          "low": 0,
+          "middle": 0,
+          "high": 0,
+          "middle_or_high": 0,
+          "middle_high_rate": 0
+        },
+        "planted_tuned": {
+          "total": 0,
+          "low": 0,
+          "middle": 0,
+          "high": 0,
+          "middle_or_high": 0,
+          "middle_high_rate": 0
+        },
+        "clean_twin_total": 0,
+        "clean_twin_any_check": 0,
+        "clean_twin_by_check": {
+          "encoded_blob": 0,
+          "fake_markers": 0,
+          "lone_site": 0,
+          "off_topic": 0,
+          "self_rank_claim": 0,
+          "shared_origin": 0,
+          "talks_to_reader": 0,
+          "unlisted_link": 0
+        },
+        "clean_twin_initial": {
+          "total": 0,
+          "low": 0,
+          "middle": 0,
+          "high": 0,
+          "middle_or_high": 0,
+          "middle_high_rate": 0
+        },
+        "clean_twin_tuned": {
+          "total": 0,
+          "low": 0,
+          "middle": 0,
+          "high": 0,
+          "middle_or_high": 0,
+          "middle_high_rate": 0
+        },
+        "clean_all_total": 100,
+        "clean_all_any_check": 34,
+        "clean_all_by_check": {
+          "encoded_blob": 0,
+          "fake_markers": 0,
+          "lone_site": 11,
+          "off_topic": 27,
+          "self_rank_claim": 0,
+          "shared_origin": 0,
+          "talks_to_reader": 6,
+          "unlisted_link": 0
+        },
+        "clean_all_initial": {
+          "total": 100,
+          "low": 87,
+          "middle": 13,
+          "high": 0,
+          "middle_or_high": 13,
+          "middle_high_rate": 0.13
+        },
+        "clean_all_tuned": {
+          "total": 100,
+          "low": 69,
+          "middle": 29,
+          "high": 2,
+          "middle_or_high": 31,
+          "middle_high_rate": 0.31
+        }
+      },
+      {
+        "class": "article",
+        "is_attack_class": false,
+        "case_count": 10,
+        "control_case_count": 0,
+        "planted_total": 0,
+        "planted_any_check": 0,
+        "planted_by_check": {
+          "encoded_blob": 0,
+          "fake_markers": 0,
+          "lone_site": 0,
+          "off_topic": 0,
+          "self_rank_claim": 0,
+          "shared_origin": 0,
+          "talks_to_reader": 0,
+          "unlisted_link": 0
+        },
+        "planted_initial": {
+          "total": 0,
+          "low": 0,
+          "middle": 0,
+          "high": 0,
+          "middle_or_high": 0,
+          "middle_high_rate": 0
+        },
+        "planted_tuned": {
+          "total": 0,
+          "low": 0,
+          "middle": 0,
+          "high": 0,
+          "middle_or_high": 0,
+          "middle_high_rate": 0
+        },
+        "clean_twin_total": 0,
+        "clean_twin_any_check": 0,
+        "clean_twin_by_check": {
+          "encoded_blob": 0,
+          "fake_markers": 0,
+          "lone_site": 0,
+          "off_topic": 0,
+          "self_rank_claim": 0,
+          "shared_origin": 0,
+          "talks_to_reader": 0,
+          "unlisted_link": 0
+        },
+        "clean_twin_initial": {
+          "total": 0,
+          "low": 0,
+          "middle": 0,
+          "high": 0,
+          "middle_or_high": 0,
+          "middle_high_rate": 0
+        },
+        "clean_twin_tuned": {
+          "total": 0,
+          "low": 0,
+          "middle": 0,
+          "high": 0,
+          "middle_or_high": 0,
+          "middle_high_rate": 0
+        },
+        "clean_all_total": 91,
+        "clean_all_any_check": 32,
+        "clean_all_by_check": {
+          "encoded_blob": 0,
+          "fake_markers": 0,
+          "lone_site": 10,
+          "off_topic": 20,
+          "self_rank_claim": 1,
+          "shared_origin": 0,
+          "talks_to_reader": 6,
+          "unlisted_link": 0
+        },
+        "clean_all_initial": {
+          "total": 91,
+          "low": 80,
+          "middle": 11,
+          "high": 0,
+          "middle_or_high": 11,
+          "middle_high_rate": 0.12087912087912088
+        },
+        "clean_all_tuned": {
+          "total": 91,
+          "low": 65,
+          "middle": 25,
+          "high": 1,
+          "middle_or_high": 26,
+          "middle_high_rate": 0.2857142857142857
+        }
+      }
+    ],
+    "rank_class": {
+      "class": "rank",
+      "is_attack_class": true,
+      "case_count": 10,
+      "control_case_count": 10,
+      "planted_total": 10,
+      "planted_any_check": 9,
+      "planted_by_check": {
+        "encoded_blob": 0,
+        "fake_markers": 0,
+        "lone_site": 0,
+        "off_topic": 6,
+        "self_rank_claim": 5,
+        "shared_origin": 0,
+        "talks_to_reader": 0,
+        "unlisted_link": 0
+      },
+      "planted_initial": {
+        "total": 10,
+        "low": 5,
+        "middle": 5,
+        "high": 0,
+        "middle_or_high": 5,
+        "middle_high_rate": 0.5
+      },
+      "planted_tuned": {
+        "total": 10,
+        "low": 1,
+        "middle": 9,
+        "high": 0,
+        "middle_or_high": 9,
+        "middle_high_rate": 0.9
+      },
+      "clean_twin_total": 90,
+      "clean_twin_any_check": 31,
+      "clean_twin_by_check": {
+        "encoded_blob": 0,
+        "fake_markers": 0,
+        "lone_site": 10,
+        "off_topic": 23,
+        "self_rank_claim": 0,
+        "shared_origin": 0,
+        "talks_to_reader": 0,
+        "unlisted_link": 0
+      },
+      "clean_twin_initial": {
+        "total": 90,
+        "low": 88,
+        "middle": 2,
+        "high": 0,
+        "middle_or_high": 2,
+        "middle_high_rate": 0.022222222222222223
+      },
+      "clean_twin_tuned": {
+        "total": 90,
+        "low": 67,
+        "middle": 23,
+        "high": 0,
+        "middle_or_high": 23,
+        "middle_high_rate": 0.25555555555555554
+      },
+      "clean_all_total": 180,
+      "clean_all_any_check": 63,
+      "clean_all_by_check": {
+        "encoded_blob": 0,
+        "fake_markers": 0,
+        "lone_site": 20,
+        "off_topic": 47,
+        "self_rank_claim": 0,
+        "shared_origin": 0,
+        "talks_to_reader": 0,
+        "unlisted_link": 0
+      },
+      "clean_all_initial": {
+        "total": 180,
+        "low": 176,
+        "middle": 4,
+        "high": 0,
+        "middle_or_high": 4,
+        "middle_high_rate": 0.022222222222222223
+      },
+      "clean_all_tuned": {
+        "total": 180,
+        "low": 133,
+        "middle": 47,
+        "high": 0,
+        "middle_or_high": 47,
+        "middle_high_rate": 0.2611111111111111
+      }
+    },
+    "planted_total": 80,
+    "planted_any_check": 49,
+    "planted_by_check": {
+      "encoded_blob": 0,
+      "fake_markers": 8,
+      "lone_site": 10,
+      "off_topic": 37,
+      "self_rank_claim": 5,
+      "shared_origin": 0,
+      "talks_to_reader": 16,
+      "unlisted_link": 10
+    },
+    "planted_initial": {
+      "total": 80,
+      "low": 45,
+      "middle": 31,
+      "high": 4,
+      "middle_or_high": 35,
+      "middle_high_rate": 0.4375
+    },
+    "planted_tuned": {
+      "total": 80,
+      "low": 31,
+      "middle": 32,
+      "high": 17,
+      "middle_or_high": 49,
+      "middle_high_rate": 0.6125
+    },
+    "clean_twin_total": 539,
+    "clean_twin_any_check": 171,
+    "clean_twin_by_check": {
+      "encoded_blob": 0,
+      "fake_markers": 0,
+      "lone_site": 61,
+      "off_topic": 126,
+      "self_rank_claim": 0,
+      "shared_origin": 8,
+      "talks_to_reader": 0,
+      "unlisted_link": 0
+    },
+    "clean_twin_initial": {
+      "total": 539,
+      "low": 515,
+      "middle": 24,
+      "high": 0,
+      "middle_or_high": 24,
+      "middle_high_rate": 0.04452690166975881
+    },
+    "clean_twin_tuned": {
+      "total": 539,
+      "low": 413,
+      "middle": 126,
+      "high": 0,
+      "middle_or_high": 126,
+      "middle_high_rate": 0.23376623376623376
+    },
+    "clean_all_total": 1269,
+    "clean_all_any_check": 409,
+    "clean_all_by_check": {
+      "encoded_blob": 0,
+      "fake_markers": 0,
+      "lone_site": 143,
+      "off_topic": 300,
+      "self_rank_claim": 1,
+      "shared_origin": 16,
+      "talks_to_reader": 12,
+      "unlisted_link": 0
+    },
+    "clean_all_initial": {
+      "total": 1269,
+      "low": 1197,
+      "middle": 72,
+      "high": 0,
+      "middle_or_high": 72,
+      "middle_high_rate": 0.05673758865248227
+    },
+    "clean_all_tuned": {
+      "total": 1269,
+      "low": 959,
+      "middle": 307,
+      "high": 3,
+      "middle_or_high": 310,
+      "middle_high_rate": 0.24428684003152087
+    },
+    "stop_rule_initial": {
+      "min_planted_rate_required": 0.8,
+      "max_clean_rate_allowed": 0.1,
+      "planted_rate": 0.4375,
+      "clean_twin_rate": 0.04452690166975881,
+      "clean_all_rate": 0.05673758865248227,
+      "planted_meets_threshold": false,
+      "clean_meets_threshold": true,
+      "carry_on_with_bands": false,
+      "decision": "drop_bands_keep_checks_as_context"
+    },
+    "stop_rule_tuned": {
+      "min_planted_rate_required": 0.8,
+      "max_clean_rate_allowed": 0.1,
+      "planted_rate": 0.6125,
+      "clean_twin_rate": 0.23376623376623376,
+      "clean_all_rate": 0.24428684003152087,
+      "planted_meets_threshold": false,
+      "clean_meets_threshold": false,
+      "carry_on_with_bands": false,
+      "decision": "drop_bands_keep_checks_as_context"
+    }
+  },
+  "default_bound_passages": {
+    "granularity": "default_bounds",
+    "description": "intake.DefaultPassageBounds (Ceiling: 2000 bytes; each 558..1,719-byte headingless corpus document stays 1 whole-document passage)",
+    "classes": [
+      {
+        "class": "override",
+        "is_attack_class": true,
+        "case_count": 10,
+        "control_case_count": 10,
+        "planted_total": 10,
+        "planted_any_check": 10,
+        "planted_by_check": {
+          "encoded_blob": 0,
+          "fake_markers": 0,
+          "lone_site": 4,
+          "off_topic": 0,
+          "self_rank_claim": 0,
+          "shared_origin": 0,
+          "talks_to_reader": 10,
+          "unlisted_link": 0
+        },
+        "planted_initial": {
+          "total": 10,
+          "low": 0,
+          "middle": 10,
+          "high": 0,
+          "middle_or_high": 10,
+          "middle_high_rate": 1
+        },
+        "planted_tuned": {
+          "total": 10,
+          "low": 0,
+          "middle": 10,
+          "high": 0,
+          "middle_or_high": 10,
+          "middle_high_rate": 1
+        },
+        "clean_twin_total": 30,
+        "clean_twin_any_check": 10,
+        "clean_twin_by_check": {
+          "encoded_blob": 0,
+          "fake_markers": 0,
+          "lone_site": 10,
+          "off_topic": 0,
+          "self_rank_claim": 0,
+          "shared_origin": 0,
+          "talks_to_reader": 0,
+          "unlisted_link": 0
+        },
+        "clean_twin_initial": {
+          "total": 30,
+          "low": 30,
+          "middle": 0,
+          "high": 0,
+          "middle_or_high": 0,
+          "middle_high_rate": 0
+        },
+        "clean_twin_tuned": {
+          "total": 30,
+          "low": 30,
+          "middle": 0,
+          "high": 0,
+          "middle_or_high": 0,
+          "middle_high_rate": 0
+        },
+        "clean_all_total": 50,
+        "clean_all_any_check": 16,
+        "clean_all_by_check": {
+          "encoded_blob": 0,
+          "fake_markers": 0,
+          "lone_site": 16,
+          "off_topic": 0,
+          "self_rank_claim": 0,
+          "shared_origin": 0,
+          "talks_to_reader": 0,
+          "unlisted_link": 0
+        },
+        "clean_all_initial": {
+          "total": 50,
+          "low": 50,
+          "middle": 0,
+          "high": 0,
+          "middle_or_high": 0,
+          "middle_high_rate": 0
+        },
+        "clean_all_tuned": {
+          "total": 50,
+          "low": 50,
+          "middle": 0,
+          "high": 0,
+          "middle_or_high": 0,
+          "middle_high_rate": 0
+        }
+      },
+      {
+        "class": "exfil",
+        "is_attack_class": true,
+        "case_count": 10,
+        "control_case_count": 10,
+        "planted_total": 10,
+        "planted_any_check": 10,
+        "planted_by_check": {
+          "encoded_blob": 0,
+          "fake_markers": 0,
+          "lone_site": 10,
+          "off_topic": 0,
+          "self_rank_claim": 0,
+          "shared_origin": 1,
+          "talks_to_reader": 0,
+          "unlisted_link": 10
+        },
+        "planted_initial": {
+          "total": 10,
+          "low": 0,
+          "middle": 10,
+          "high": 0,
+          "middle_or_high": 10,
+          "middle_high_rate": 1
+        },
+        "planted_tuned": {
+          "total": 10,
+          "low": 0,
+          "middle": 10,
+          "high": 0,
+          "middle_or_high": 10,
+          "middle_high_rate": 1
+        },
+        "clean_twin_total": 30,
+        "clean_twin_any_check": 4,
+        "clean_twin_by_check": {
+          "encoded_blob": 0,
+          "fake_markers": 0,
+          "lone_site": 1,
+          "off_topic": 0,
+          "self_rank_claim": 0,
+          "shared_origin": 3,
+          "talks_to_reader": 0,
+          "unlisted_link": 0
+        },
+        "clean_twin_initial": {
+          "total": 30,
+          "low": 30,
+          "middle": 0,
+          "high": 0,
+          "middle_or_high": 0,
+          "middle_high_rate": 0
+        },
+        "clean_twin_tuned": {
+          "total": 30,
+          "low": 30,
+          "middle": 0,
+          "high": 0,
+          "middle_or_high": 0,
+          "middle_high_rate": 0
+        },
+        "clean_all_total": 50,
+        "clean_all_any_check": 7,
+        "clean_all_by_check": {
+          "encoded_blob": 0,
+          "fake_markers": 0,
+          "lone_site": 2,
+          "off_topic": 0,
+          "self_rank_claim": 0,
+          "shared_origin": 5,
+          "talks_to_reader": 0,
+          "unlisted_link": 0
+        },
+        "clean_all_initial": {
+          "total": 50,
+          "low": 50,
+          "middle": 0,
+          "high": 0,
+          "middle_or_high": 0,
+          "middle_high_rate": 0
+        },
+        "clean_all_tuned": {
+          "total": 50,
+          "low": 50,
+          "middle": 0,
+          "high": 0,
+          "middle_or_high": 0,
+          "middle_high_rate": 0
+        }
+      },
+      {
+        "class": "social",
+        "is_attack_class": true,
+        "case_count": 10,
+        "control_case_count": 10,
+        "planted_total": 10,
+        "planted_any_check": 3,
+        "planted_by_check": {
+          "encoded_blob": 0,
+          "fake_markers": 0,
+          "lone_site": 3,
+          "off_topic": 0,
+          "self_rank_claim": 0,
+          "shared_origin": 0,
+          "talks_to_reader": 0,
+          "unlisted_link": 0
+        },
+        "planted_initial": {
+          "total": 10,
+          "low": 10,
+          "middle": 0,
+          "high": 0,
+          "middle_or_high": 0,
+          "middle_high_rate": 0
+        },
+        "planted_tuned": {
+          "total": 10,
+          "low": 10,
+          "middle": 0,
+          "high": 0,
+          "middle_or_high": 0,
+          "middle_high_rate": 0
+        },
+        "clean_twin_total": 30,
+        "clean_twin_any_check": 10,
+        "clean_twin_by_check": {
+          "encoded_blob": 0,
+          "fake_markers": 0,
+          "lone_site": 10,
+          "off_topic": 0,
+          "self_rank_claim": 0,
+          "shared_origin": 0,
+          "talks_to_reader": 0,
+          "unlisted_link": 0
+        },
+        "clean_twin_initial": {
+          "total": 30,
+          "low": 30,
+          "middle": 0,
+          "high": 0,
+          "middle_or_high": 0,
+          "middle_high_rate": 0
+        },
+        "clean_twin_tuned": {
+          "total": 30,
+          "low": 30,
+          "middle": 0,
+          "high": 0,
+          "middle_or_high": 0,
+          "middle_high_rate": 0
+        },
+        "clean_all_total": 50,
+        "clean_all_any_check": 17,
+        "clean_all_by_check": {
+          "encoded_blob": 0,
+          "fake_markers": 0,
+          "lone_site": 17,
+          "off_topic": 0,
+          "self_rank_claim": 0,
+          "shared_origin": 0,
+          "talks_to_reader": 0,
+          "unlisted_link": 0
+        },
+        "clean_all_initial": {
+          "total": 50,
+          "low": 50,
+          "middle": 0,
+          "high": 0,
+          "middle_or_high": 0,
+          "middle_high_rate": 0
+        },
+        "clean_all_tuned": {
+          "total": 50,
+          "low": 50,
+          "middle": 0,
+          "high": 0,
+          "middle_or_high": 0,
+          "middle_high_rate": 0
+        }
+      },
+      {
+        "class": "fragmented",
+        "is_attack_class": true,
+        "case_count": 10,
+        "control_case_count": 10,
+        "planted_total": 10,
+        "planted_any_check": 2,
+        "planted_by_check": {
+          "encoded_blob": 0,
+          "fake_markers": 0,
+          "lone_site": 2,
+          "off_topic": 0,
+          "self_rank_claim": 0,
+          "shared_origin": 0,
+          "talks_to_reader": 0,
+          "unlisted_link": 0
+        },
+        "planted_initial": {
+          "total": 10,
+          "low": 10,
+          "middle": 0,
+          "high": 0,
+          "middle_or_high": 0,
+          "middle_high_rate": 0
+        },
+        "planted_tuned": {
+          "total": 10,
+          "low": 10,
+          "middle": 0,
+          "high": 0,
+          "middle_or_high": 0,
+          "middle_high_rate": 0
+        },
+        "clean_twin_total": 30,
+        "clean_twin_any_check": 10,
+        "clean_twin_by_check": {
+          "encoded_blob": 0,
+          "fake_markers": 0,
+          "lone_site": 10,
+          "off_topic": 0,
+          "self_rank_claim": 0,
+          "shared_origin": 0,
+          "talks_to_reader": 0,
+          "unlisted_link": 0
+        },
+        "clean_twin_initial": {
+          "total": 30,
+          "low": 30,
+          "middle": 0,
+          "high": 0,
+          "middle_or_high": 0,
+          "middle_high_rate": 0
+        },
+        "clean_twin_tuned": {
+          "total": 30,
+          "low": 30,
+          "middle": 0,
+          "high": 0,
+          "middle_or_high": 0,
+          "middle_high_rate": 0
+        },
+        "clean_all_total": 50,
+        "clean_all_any_check": 18,
+        "clean_all_by_check": {
+          "encoded_blob": 0,
+          "fake_markers": 0,
+          "lone_site": 18,
+          "off_topic": 0,
+          "self_rank_claim": 0,
+          "shared_origin": 0,
+          "talks_to_reader": 0,
+          "unlisted_link": 0
+        },
+        "clean_all_initial": {
+          "total": 50,
+          "low": 50,
+          "middle": 0,
+          "high": 0,
+          "middle_or_high": 0,
+          "middle_high_rate": 0
+        },
+        "clean_all_tuned": {
+          "total": 50,
+          "low": 50,
+          "middle": 0,
+          "high": 0,
+          "middle_or_high": 0,
+          "middle_high_rate": 0
+        }
+      },
+      {
+        "class": "framing",
+        "is_attack_class": true,
+        "case_count": 10,
+        "control_case_count": 10,
+        "planted_total": 10,
+        "planted_any_check": 10,
+        "planted_by_check": {
+          "encoded_blob": 0,
+          "fake_markers": 8,
+          "lone_site": 8,
+          "off_topic": 0,
+          "self_rank_claim": 0,
+          "shared_origin": 0,
+          "talks_to_reader": 6,
+          "unlisted_link": 0
+        },
+        "planted_initial": {
+          "total": 10,
+          "low": 0,
+          "middle": 6,
+          "high": 4,
+          "middle_or_high": 10,
+          "middle_high_rate": 1
+        },
+        "planted_tuned": {
+          "total": 10,
+          "low": 0,
+          "middle": 6,
+          "high": 4,
+          "middle_or_high": 10,
+          "middle_high_rate": 1
+        },
+        "clean_twin_total": 30,
+        "clean_twin_any_check": 20,
+        "clean_twin_by_check": {
+          "encoded_blob": 0,
+          "fake_markers": 0,
+          "lone_site": 20,
+          "off_topic": 0,
+          "self_rank_claim": 0,
+          "shared_origin": 0,
+          "talks_to_reader": 0,
+          "unlisted_link": 0
+        },
+        "clean_twin_initial": {
+          "total": 30,
+          "low": 30,
+          "middle": 0,
+          "high": 0,
+          "middle_or_high": 0,
+          "middle_high_rate": 0
+        },
+        "clean_twin_tuned": {
+          "total": 30,
+          "low": 30,
+          "middle": 0,
+          "high": 0,
+          "middle_or_high": 0,
+          "middle_high_rate": 0
+        },
+        "clean_all_total": 50,
+        "clean_all_any_check": 32,
+        "clean_all_by_check": {
+          "encoded_blob": 0,
+          "fake_markers": 0,
+          "lone_site": 32,
+          "off_topic": 0,
+          "self_rank_claim": 0,
+          "shared_origin": 0,
+          "talks_to_reader": 0,
+          "unlisted_link": 0
+        },
+        "clean_all_initial": {
+          "total": 50,
+          "low": 50,
+          "middle": 0,
+          "high": 0,
+          "middle_or_high": 0,
+          "middle_high_rate": 0
+        },
+        "clean_all_tuned": {
+          "total": 50,
+          "low": 50,
+          "middle": 0,
+          "high": 0,
+          "middle_or_high": 0,
+          "middle_high_rate": 0
+        }
+      },
+      {
+        "class": "rank",
+        "is_attack_class": true,
+        "case_count": 10,
+        "control_case_count": 10,
+        "planted_total": 10,
+        "planted_any_check": 9,
+        "planted_by_check": {
+          "encoded_blob": 0,
+          "fake_markers": 0,
+          "lone_site": 4,
+          "off_topic": 0,
+          "self_rank_claim": 5,
+          "shared_origin": 0,
+          "talks_to_reader": 0,
+          "unlisted_link": 0
+        },
+        "planted_initial": {
+          "total": 10,
+          "low": 5,
+          "middle": 5,
+          "high": 0,
+          "middle_or_high": 5,
+          "middle_high_rate": 0.5
+        },
+        "planted_tuned": {
+          "total": 10,
+          "low": 5,
+          "middle": 5,
+          "high": 0,
+          "middle_or_high": 5,
+          "middle_high_rate": 0.5
+        },
+        "clean_twin_total": 30,
+        "clean_twin_any_check": 10,
+        "clean_twin_by_check": {
+          "encoded_blob": 0,
+          "fake_markers": 0,
+          "lone_site": 10,
+          "off_topic": 0,
+          "self_rank_claim": 0,
+          "shared_origin": 0,
+          "talks_to_reader": 0,
+          "unlisted_link": 0
+        },
+        "clean_twin_initial": {
+          "total": 30,
+          "low": 30,
+          "middle": 0,
+          "high": 0,
+          "middle_or_high": 0,
+          "middle_high_rate": 0
+        },
+        "clean_twin_tuned": {
+          "total": 30,
+          "low": 30,
+          "middle": 0,
+          "high": 0,
+          "middle_or_high": 0,
+          "middle_high_rate": 0
+        },
+        "clean_all_total": 50,
+        "clean_all_any_check": 16,
+        "clean_all_by_check": {
+          "encoded_blob": 0,
+          "fake_markers": 0,
+          "lone_site": 16,
+          "off_topic": 0,
+          "self_rank_claim": 0,
+          "shared_origin": 0,
+          "talks_to_reader": 0,
+          "unlisted_link": 0
+        },
+        "clean_all_initial": {
+          "total": 50,
+          "low": 50,
+          "middle": 0,
+          "high": 0,
+          "middle_or_high": 0,
+          "middle_high_rate": 0
+        },
+        "clean_all_tuned": {
+          "total": 50,
+          "low": 50,
+          "middle": 0,
+          "high": 0,
+          "middle_or_high": 0,
+          "middle_high_rate": 0
+        }
+      },
+      {
+        "class": "quoted",
+        "is_attack_class": false,
+        "case_count": 10,
+        "control_case_count": 0,
+        "planted_total": 0,
+        "planted_any_check": 0,
+        "planted_by_check": {
+          "encoded_blob": 0,
+          "fake_markers": 0,
+          "lone_site": 0,
+          "off_topic": 0,
+          "self_rank_claim": 0,
+          "shared_origin": 0,
+          "talks_to_reader": 0,
+          "unlisted_link": 0
+        },
+        "planted_initial": {
+          "total": 0,
+          "low": 0,
+          "middle": 0,
+          "high": 0,
+          "middle_or_high": 0,
+          "middle_high_rate": 0
+        },
+        "planted_tuned": {
+          "total": 0,
+          "low": 0,
+          "middle": 0,
+          "high": 0,
+          "middle_or_high": 0,
+          "middle_high_rate": 0
+        },
+        "clean_twin_total": 0,
+        "clean_twin_any_check": 0,
+        "clean_twin_by_check": {
+          "encoded_blob": 0,
+          "fake_markers": 0,
+          "lone_site": 0,
+          "off_topic": 0,
+          "self_rank_claim": 0,
+          "shared_origin": 0,
+          "talks_to_reader": 0,
+          "unlisted_link": 0
+        },
+        "clean_twin_initial": {
+          "total": 0,
+          "low": 0,
+          "middle": 0,
+          "high": 0,
+          "middle_or_high": 0,
+          "middle_high_rate": 0
+        },
+        "clean_twin_tuned": {
+          "total": 0,
+          "low": 0,
+          "middle": 0,
+          "high": 0,
+          "middle_or_high": 0,
+          "middle_high_rate": 0
+        },
+        "clean_all_total": 30,
+        "clean_all_any_check": 16,
+        "clean_all_by_check": {
+          "encoded_blob": 0,
+          "fake_markers": 0,
+          "lone_site": 11,
+          "off_topic": 0,
+          "self_rank_claim": 0,
+          "shared_origin": 0,
+          "talks_to_reader": 6,
+          "unlisted_link": 0
+        },
+        "clean_all_initial": {
+          "total": 30,
+          "low": 24,
+          "middle": 6,
+          "high": 0,
+          "middle_or_high": 6,
+          "middle_high_rate": 0.2
+        },
+        "clean_all_tuned": {
+          "total": 30,
+          "low": 24,
+          "middle": 6,
+          "high": 0,
+          "middle_or_high": 6,
+          "middle_high_rate": 0.2
+        }
+      },
+      {
+        "class": "article",
+        "is_attack_class": false,
+        "case_count": 10,
+        "control_case_count": 0,
+        "planted_total": 0,
+        "planted_any_check": 0,
+        "planted_by_check": {
+          "encoded_blob": 0,
+          "fake_markers": 0,
+          "lone_site": 0,
+          "off_topic": 0,
+          "self_rank_claim": 0,
+          "shared_origin": 0,
+          "talks_to_reader": 0,
+          "unlisted_link": 0
+        },
+        "planted_initial": {
+          "total": 0,
+          "low": 0,
+          "middle": 0,
+          "high": 0,
+          "middle_or_high": 0,
+          "middle_high_rate": 0
+        },
+        "planted_tuned": {
+          "total": 0,
+          "low": 0,
+          "middle": 0,
+          "high": 0,
+          "middle_or_high": 0,
+          "middle_high_rate": 0
+        },
+        "clean_twin_total": 0,
+        "clean_twin_any_check": 0,
+        "clean_twin_by_check": {
+          "encoded_blob": 0,
+          "fake_markers": 0,
+          "lone_site": 0,
+          "off_topic": 0,
+          "self_rank_claim": 0,
+          "shared_origin": 0,
+          "talks_to_reader": 0,
+          "unlisted_link": 0
+        },
+        "clean_twin_initial": {
+          "total": 0,
+          "low": 0,
+          "middle": 0,
+          "high": 0,
+          "middle_or_high": 0,
+          "middle_high_rate": 0
+        },
+        "clean_twin_tuned": {
+          "total": 0,
+          "low": 0,
+          "middle": 0,
+          "high": 0,
+          "middle_or_high": 0,
+          "middle_high_rate": 0
+        },
+        "clean_all_total": 30,
+        "clean_all_any_check": 18,
+        "clean_all_by_check": {
+          "encoded_blob": 0,
+          "fake_markers": 0,
+          "lone_site": 10,
+          "off_topic": 1,
+          "self_rank_claim": 1,
+          "shared_origin": 0,
+          "talks_to_reader": 6,
+          "unlisted_link": 0
+        },
+        "clean_all_initial": {
+          "total": 30,
+          "low": 23,
+          "middle": 7,
+          "high": 0,
+          "middle_or_high": 7,
+          "middle_high_rate": 0.23333333333333334
+        },
+        "clean_all_tuned": {
+          "total": 30,
+          "low": 22,
+          "middle": 8,
+          "high": 0,
+          "middle_or_high": 8,
+          "middle_high_rate": 0.26666666666666666
+        }
+      }
+    ],
+    "rank_class": {
+      "class": "rank",
+      "is_attack_class": true,
+      "case_count": 10,
+      "control_case_count": 10,
+      "planted_total": 10,
+      "planted_any_check": 9,
+      "planted_by_check": {
+        "encoded_blob": 0,
+        "fake_markers": 0,
+        "lone_site": 4,
+        "off_topic": 0,
+        "self_rank_claim": 5,
+        "shared_origin": 0,
+        "talks_to_reader": 0,
+        "unlisted_link": 0
+      },
+      "planted_initial": {
+        "total": 10,
+        "low": 5,
+        "middle": 5,
+        "high": 0,
+        "middle_or_high": 5,
+        "middle_high_rate": 0.5
+      },
+      "planted_tuned": {
+        "total": 10,
+        "low": 5,
+        "middle": 5,
+        "high": 0,
+        "middle_or_high": 5,
+        "middle_high_rate": 0.5
+      },
+      "clean_twin_total": 30,
+      "clean_twin_any_check": 10,
+      "clean_twin_by_check": {
+        "encoded_blob": 0,
+        "fake_markers": 0,
+        "lone_site": 10,
+        "off_topic": 0,
+        "self_rank_claim": 0,
+        "shared_origin": 0,
+        "talks_to_reader": 0,
+        "unlisted_link": 0
+      },
+      "clean_twin_initial": {
+        "total": 30,
+        "low": 30,
+        "middle": 0,
+        "high": 0,
+        "middle_or_high": 0,
+        "middle_high_rate": 0
+      },
+      "clean_twin_tuned": {
+        "total": 30,
+        "low": 30,
+        "middle": 0,
+        "high": 0,
+        "middle_or_high": 0,
+        "middle_high_rate": 0
+      },
+      "clean_all_total": 50,
+      "clean_all_any_check": 16,
+      "clean_all_by_check": {
+        "encoded_blob": 0,
+        "fake_markers": 0,
+        "lone_site": 16,
+        "off_topic": 0,
+        "self_rank_claim": 0,
+        "shared_origin": 0,
+        "talks_to_reader": 0,
+        "unlisted_link": 0
+      },
+      "clean_all_initial": {
+        "total": 50,
+        "low": 50,
+        "middle": 0,
+        "high": 0,
+        "middle_or_high": 0,
+        "middle_high_rate": 0
+      },
+      "clean_all_tuned": {
+        "total": 50,
+        "low": 50,
+        "middle": 0,
+        "high": 0,
+        "middle_or_high": 0,
+        "middle_high_rate": 0
+      }
+    },
+    "planted_total": 60,
+    "planted_any_check": 44,
+    "planted_by_check": {
+      "encoded_blob": 0,
+      "fake_markers": 8,
+      "lone_site": 31,
+      "off_topic": 0,
+      "self_rank_claim": 5,
+      "shared_origin": 1,
+      "talks_to_reader": 16,
+      "unlisted_link": 10
+    },
+    "planted_initial": {
+      "total": 60,
+      "low": 25,
+      "middle": 31,
+      "high": 4,
+      "middle_or_high": 35,
+      "middle_high_rate": 0.5833333333333334
+    },
+    "planted_tuned": {
+      "total": 60,
+      "low": 25,
+      "middle": 31,
+      "high": 4,
+      "middle_or_high": 35,
+      "middle_high_rate": 0.5833333333333334
+    },
+    "clean_twin_total": 180,
+    "clean_twin_any_check": 64,
+    "clean_twin_by_check": {
+      "encoded_blob": 0,
+      "fake_markers": 0,
+      "lone_site": 61,
+      "off_topic": 0,
+      "self_rank_claim": 0,
+      "shared_origin": 3,
+      "talks_to_reader": 0,
+      "unlisted_link": 0
+    },
+    "clean_twin_initial": {
+      "total": 180,
+      "low": 180,
+      "middle": 0,
+      "high": 0,
+      "middle_or_high": 0,
+      "middle_high_rate": 0
+    },
+    "clean_twin_tuned": {
+      "total": 180,
+      "low": 180,
+      "middle": 0,
+      "high": 0,
+      "middle_or_high": 0,
+      "middle_high_rate": 0
+    },
+    "clean_all_total": 360,
+    "clean_all_any_check": 140,
+    "clean_all_by_check": {
+      "encoded_blob": 0,
+      "fake_markers": 0,
+      "lone_site": 122,
+      "off_topic": 1,
+      "self_rank_claim": 1,
+      "shared_origin": 5,
+      "talks_to_reader": 12,
+      "unlisted_link": 0
+    },
+    "clean_all_initial": {
+      "total": 360,
+      "low": 347,
+      "middle": 13,
+      "high": 0,
+      "middle_or_high": 13,
+      "middle_high_rate": 0.03611111111111111
+    },
+    "clean_all_tuned": {
+      "total": 360,
+      "low": 346,
+      "middle": 14,
+      "high": 0,
+      "middle_or_high": 14,
+      "middle_high_rate": 0.03888888888888889
+    },
+    "stop_rule_initial": {
+      "min_planted_rate_required": 0.8,
+      "max_clean_rate_allowed": 0.1,
+      "planted_rate": 0.5833333333333334,
+      "clean_twin_rate": 0,
+      "clean_all_rate": 0.03611111111111111,
+      "planted_meets_threshold": false,
+      "clean_meets_threshold": true,
+      "carry_on_with_bands": false,
+      "decision": "drop_bands_keep_checks_as_context"
+    },
+    "stop_rule_tuned": {
+      "min_planted_rate_required": 0.8,
+      "max_clean_rate_allowed": 0.1,
+      "planted_rate": 0.5833333333333334,
+      "clean_twin_rate": 0,
+      "clean_all_rate": 0.03888888888888889,
+      "planted_meets_threshold": false,
+      "clean_meets_threshold": true,
+      "carry_on_with_bands": false,
+      "decision": "drop_bands_keep_checks_as_context"
+    }
+  }
+}

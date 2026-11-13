@@ -1,6 +1,6 @@
 # First measurement: do the plain checks make planted passages stand out?
 
-Approved-by:
+Approved-by: Coby (2026-11-13) sha256:68fc276d4a3a
 
 Track: design (adds the corpus-to-`servicesim` measurement requirement to `openspec/specs/intake/spec.md` and defines the paragraph-to-passage oracle and link-list rules for `#53`).
 
