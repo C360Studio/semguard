@@ -66,6 +66,7 @@ attacks. The cases are hand-edited and frozen by hash, so the numbers are a lab 
 | --- | --- |
 | `cmd/detonate` | corpus -> frame -> reader -> verify -> hijack report (milestone 1) |
 | `cmd/guard` | gate service (milestone 2, only if milestone 1 shows a gap) |
+| `intake` | clean, parse, split, in-memory graph, and deterministic passage checks/bands (exported module package) |
 | `untrusted` | segment, strip, datamark, frame (exported module package) |
 | `verify` | schema validation, claim resolution, link allowlist (exported module package) |
 | `internal/reader` | the one OpenAI-compatible chat client |

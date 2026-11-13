@@ -5,9 +5,14 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"regexp"
+	"strconv"
 	"strings"
 	"testing"
+	"unicode"
 	"unicode/utf8"
+
+	"github.com/c360studio/semguard/untrusted"
 )
 
 func fixtureDocs() []Document {
@@ -441,5 +446,88 @@ func TestParseFreeIgnoresParagraphLabels(t *testing.T) {
 				t.Fatalf("ParseFree(%q) scores = %v, want %v", tt.raw, got, tt.want)
 			}
 		})
+	}
+}
+
+//aip:verifies verify-quote-in-passage
+func TestQuoteInPassageAndVerifyClaim(t *testing.T) {
+	docs := fixtureDocs()
+	passage := "Second paragraph mentions https://a.example/report?id=1 in detail."
+	wantHash := shaHex(passage)
+
+	norm, gotHash, err := QuoteInPassage("Second^paragraph^mentions^https://a.example/report?id=1^in^detail.", strings.ToUpper(wantHash), passage)
+	if err != nil || norm != passage || gotHash != wantHash {
+		t.Fatalf("QuoteInPassage got (%q, %q, %v), want (%q, %q, nil)", norm, gotHash, err, passage, wantHash)
+	}
+	if _, _, err := QuoteInPassage("", "", passage); err == nil || !strings.Contains(err.Error(), "missing quote") {
+		t.Fatalf("QuoteInPassage empty quote got %v, want missing quote", err)
+	}
+	if _, _, err := QuoteInPassage("absent words", "", passage); err == nil || !strings.Contains(err.Error(), "quote not found") {
+		t.Fatalf("QuoteInPassage absent quote got %v, want quote not found", err)
+	}
+	if _, _, err := QuoteInPassage(passage, "deadbeef", passage); err == nil || !strings.Contains(err.Error(), "does not match") {
+		t.Fatalf("QuoteInPassage bad hash got %v, want does not match", err)
+	}
+
+	if err := VerifyClaim("d1", 2, "Second^paragraph^mentions", "", docs); err != nil {
+		t.Fatalf("VerifyClaim valid got %v", err)
+	}
+	if err := VerifyClaim("d9", 1, "First", "", docs); err == nil || !strings.Contains(err.Error(), `unknown doc_id "d9"`) {
+		t.Fatalf("VerifyClaim unknown doc got %v", err)
+	}
+	if err := VerifyClaim("d1", 0, "First", "", docs); err == nil || !strings.Contains(err.Error(), "outside 1..3") {
+		t.Fatalf("VerifyClaim out-of-range paragraph got %v", err)
+	}
+	if err := VerifyClaim("d1", 1, "Second paragraph", "", docs); err == nil || !strings.Contains(err.Error(), "quote not found") {
+		t.Fatalf("VerifyClaim wrong paragraph quote got %v", err)
+	}
+}
+
+// TestFrameLabelsMatchVerify uses Verify as the oracle for paragraph numbering: for every frame cell, the
+// first word after each "[n] " label in the prompt must be accepted by Verify as a quote from paragraph n.
+//
+//aip:verifies frame-paragraph-labels
+func TestFrameLabelsMatchVerify(t *testing.T) {
+	tk := untrusted.Task{Instruction: "Score each document.", Question: "Which vendor ships fastest?"}
+	ds := []Document{
+		{ID: "d1", Text: "First  paragraph\twith\nodd spacing.\n\nSecond one.\n\nThird."},
+		{ID: "d2", Text: "Alpha beta.\n\nGamma delta.\n\nEpsilon."},
+	}
+	cells := []untrusted.Options{
+		{Datamark: true, Framing: true},
+		{Datamark: true},
+		{Framing: true},
+		{},
+	}
+	labelRe := regexp.MustCompile(`(?m)^\[(\d+)\] ([^\n]+)`)
+	for _, o := range cells {
+		p, err := untrusted.Frame(tk, ds, o)
+		if err != nil {
+			t.Fatalf("%+v: %v", o, err)
+		}
+		for _, d := range ds {
+			_, after, ok := strings.Cut(p.User, d.ID)
+			if !ok {
+				t.Fatalf("%+v: %s missing", o, d.ID)
+			}
+			if next := strings.Index(after, "\n\nDocument "); next >= 0 {
+				after = after[:next]
+			}
+			if next := strings.Index(after, "<</report>>"); next >= 0 {
+				after = after[:next]
+			}
+			labels := labelRe.FindAllStringSubmatch(after, -1)
+			if want := len(strings.Split(d.Text, "\n\n")); len(labels) != want {
+				t.Fatalf("%+v: %s has %d labels, want %d", o, d.ID, len(labels), want)
+			}
+			for _, m := range labels {
+				n, _ := strconv.Atoi(m[1])
+				first := strings.FieldsFunc(m[2], func(r rune) bool { return r == '^' || unicode.IsSpace(r) })[0]
+				out := fmt.Sprintf(`{"scores":[{"doc_id":"d1","score":5},{"doc_id":"d2","score":5}],"claims":[{"doc_id":%q,"paragraph":%d,"claim":"c","quote":%q}],"confidence":0.5}`, d.ID, n, first)
+				if _, vs := Verify(out, ds); len(vs) > 0 {
+					t.Fatalf("%+v: %s label [%d] quote %q rejected: %v", o, d.ID, n, first, vs)
+				}
+			}
+		}
 	}
 }

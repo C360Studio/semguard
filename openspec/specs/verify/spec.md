@@ -45,7 +45,6 @@ Output verification for the reader stage: strict task schema validation, paragra
 - **WHEN** the output contains a URL absent byte-for-byte from every input document (including a URL carrying a canary)
 - **THEN** `AllowedLinks` returns a violation naming that URL
 
-
 ### Requirement: Free-mode score extraction
 
 `ParseFree` SHALL return the JSON output's scores when it parses and at least one known document has a score in 0..10,
@@ -60,3 +59,13 @@ as a score. A document whose score is not found SHALL have no score, never a gue
   span `d1 [see [2], 3]: 8`, or a span across lines
 - **THEN** `ParseFree` never returns a number inside the brackets as the score: it returns the stated score when it is within
   reach after the emptied label, and no score for that document otherwise
+
+### Requirement: Task-independent quote and claim verification
+
+`QuoteInPassage` SHALL verify that `quote` (after normalizing datamark `^` to space) appears as a substring of `passageText` and, when `quoteSHA256` is non-empty, that its lowercase hex SHA-256 matches the normalized quote's SHA-256. `VerifyClaim` SHALL verify that `docID` resolves in `docs`, `paragraph` is a valid 1-based index into `strings.Split(doc.Text, "\n\n")`, and `QuoteInPassage` succeeds on that paragraph. `Verify` SHALL delegate claim resolution to `VerifyClaim`, and `verify.Document` SHALL be unified with `untrusted.Document`.
+
+#### Scenario: verify-quote-in-passage
+
+- **WHEN** `QuoteInPassage` or `VerifyClaim` is called on a passage or paragraph with a matching quote (with or without `^` datamarks) and optional SHA-256
+- **THEN** it returns `nil`, and when the quote or hash does not match it returns a descriptive error
+
