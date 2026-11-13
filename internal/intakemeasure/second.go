@@ -65,6 +65,30 @@ func DefaultKev4BLock(hardware, endpointHost string) SemselectModelLock {
 	}
 }
 
+// DefaultMercuryDecideLock returns the provenance metadata for Inception Labs' hosted mercury-decide API (#54 comparison).
+// Revision records the evaluation date (api-2026-11-13) because the hosted API serves unpinned weights at POST /v1/decisions.
+func DefaultMercuryDecideLock(hardware, endpointHost string) SemselectModelLock {
+	if strings.TrimSpace(hardware) == "" {
+		hardware = runtime.GOOS + "/" + runtime.GOARCH + " (client -> Inception Labs API)"
+	}
+	if strings.TrimSpace(endpointHost) == "" {
+		endpointHost = "api.inceptionlabs.ai"
+	}
+	return SemselectModelLock{
+		SemselectRevision: "direct-/v1/decisions-contract",
+		Repository:        "inception/mercury-decide",
+		Revision:          "api-2026-11-13",
+		Filename:          "hosted-api-no-local-weights",
+		SizeBytes:         0,
+		SHA256:            "none-hosted-api",
+		License:           "Proprietary (Inception Labs API Terms)",
+		Alias:             "mercury-decide",
+		RuntimeRevision:   "inceptionlabs-api-v1-decisions",
+		Hardware:          hardware,
+		EndpointHost:      endpointHost,
+	}
+}
+
 // PassageDecisionItem represents one evaluated passage in the #54 cohort.
 type PassageDecisionItem struct {
 	CaseID          string                `json:"case_id"`
@@ -178,12 +202,12 @@ type SecondMeasurementReport struct {
 	Passages          []PassageDecisionItem `json:"passages"`
 }
 
-// BuildSecondMeasurementCohort extracts the 182 unique paragraphs in the #54 cohort
+// BuildSecondMeasurementCohort extracts the 181 unique paragraphs in the #54 cohort
 // from the 140 corpus cases served through servicesim Exa:
 //   - All 80 planted paragraphs in the 60 attack cases (35 middle+high + 45 low)
 //   - All 80 position-matched clean paragraphs in the 60 "-control" twin cases
 //   - All 24 clean paragraphs in the 60 "-control" twin cases that landed in BandMiddle or BandHigh in #53
-//     (2 of which overlap with the 80 position-matched clean twin paragraphs, yielding 102 unique clean twin paragraphs).
+//     (3 of which overlap with the 80 position-matched clean twin paragraphs, yielding 101 unique clean twin paragraphs).
 func BuildSecondMeasurementCohort(ctx context.Context, cases []corpus.Case) ([]PassageDecisionItem, map[string]string, error) {
 	controlByFamily := make(map[string]*corpus.Case)
 	attackByFamily := make(map[string]*corpus.Case)
@@ -574,9 +598,16 @@ func WriteSecondEvidenceJSON(path string, rep SecondMeasurementReport) error {
 	return os.Rename(tmp, path)
 }
 
+func shortPrefix(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	return s[:n]
+}
+
 // RenderCombinedMarkdown renders both the First Measurement (#53) and the Second Measurement (#54)
-// into docs/intake-results.md.
-func RenderCombinedMarkdown(first MeasurementReport, second *SecondMeasurementReport) string {
+// (plus any additional comparison decision-model runs such as Mercury Decide) into docs/intake-results.md.
+func RenderCombinedMarkdown(first MeasurementReport, second *SecondMeasurementReport, comparisons ...SecondMeasurementReport) string {
 	var b strings.Builder
 	b.WriteString(RenderMarkdown(first))
 	if second == nil {
@@ -590,14 +621,14 @@ func RenderCombinedMarkdown(first MeasurementReport, second *SecondMeasurementRe
 		"These counts measure `semselect` (`%s`, `%s@%s`, `%s`, `sha256:%s`, runtime `llama.cpp@%s` on `%s`) across the `%d`-passage cohort (`80` planted paragraphs, `80` position-matched clean `-control` twin paragraphs, and all `24` `middle+high` clean `-control` twin paragraphs; `%d` unique clean twin paragraphs total) from `corpus_sha256: %s`.\n\n",
 		second.ModelLock.Alias,
 		second.ModelLock.Repository,
-		second.ModelLock.Revision[:12],
+		shortPrefix(second.ModelLock.Revision, 12),
 		second.ModelLock.Filename,
-		second.ModelLock.SHA256[:12],
-		second.ModelLock.RuntimeRevision[:12],
+		shortPrefix(second.ModelLock.SHA256, 12),
+		shortPrefix(second.ModelLock.RuntimeRevision, 12),
 		second.ModelLock.Hardware,
 		len(second.Passages),
 		second.CleanEvaluatedAll.Total,
-		second.CorpusSHA256[:12],
+		shortPrefix(second.CorpusSHA256, 12),
 	)
 
 	b.WriteString("## 6. Second Measurement Provenance, Latency & Stop-Rule Outcome (`#54`)\n\n")
@@ -663,7 +694,74 @@ func RenderCombinedMarkdown(first MeasurementReport, second *SecondMeasurementRe
 	fmt.Fprintf(&b, "| `low` band in `#53` (missed by band gate) | **%s** | %s |\n", fmtDecisionFull(rc.PlantedLow), fmtDecisionFull(rc.CleanLow))
 	fmt.Fprintf(&b, "| Zero check hits (`Checks == []`) | **%s** | n/a |\n", fmtDecisionFull(rc.PlantedNoCheck))
 
+	for idx, comp := range comparisons {
+		compCleanNoCheck := countCleanNoCheck(comp.Passages)
+		b.WriteString("\n## ")
+		fmt.Fprintf(&b, "%d. Side-by-Side Decision Model Comparison: `%s` vs `%s` (`#54`)\n\n", 9+idx, second.ModelLock.Alias, comp.ModelLock.Alias)
+		fmt.Fprintf(&b, "*Table caption: Small authored evaluations are not benchmarks. Side-by-side comparison on the `%d`-passage `#54` cohort (`%d` planted paragraphs, `%d` position-matched clean `-control` twins, and `%d` total evaluated clean twins) using the identical two closed `noul` questions and `POST /v1/decisions` contract.*\n\n",
+			len(comp.Passages), comp.PlantedAll.Total, comp.CleanMatchedTwin.Total, comp.CleanEvaluatedAll.Total)
+		fmt.Fprintf(&b, "- **Comparison model & provenance:** `%s` (`%s`, revision `%s`, file `%s`, `sha256:%s`, license `%s`, runtime `%s`, endpoint `%s`, `%s`), `p50 = %d ms`, `p95 = %d ms` (`min = %d ms`, `max = %d ms`, `total = %.1f s`).\n",
+			comp.ModelLock.Alias, comp.ModelLock.Repository, comp.ModelLock.Revision, comp.ModelLock.Filename, comp.ModelLock.SHA256, comp.ModelLock.License, comp.ModelLock.RuntimeRevision, comp.ModelLock.EndpointHost, comp.ModelLock.Hardware,
+			comp.Latency.P50Ms, comp.Latency.P95Ms, comp.Latency.MinMs, comp.Latency.MaxMs, float64(comp.Latency.TotalMs)/1000.0)
+		fmt.Fprintf(&b, "- **Overall discrimination (`yes + unsure >= %.2f` and binary `yes >= %.2f`):** `%s` returned `%d` `unsure` outcomes across `%d` passages (vs `%d` `unsure` on `%s`). At `>= %.2f`: **`%d/%d` (`%.1f%%`)** planted passages vs **`%d/%d` (`%.1f%%`)** position-matched clean `-control` twins (delta **`%+.1f` pp**; **`%d/%d` (`%.1f%%`)** across all `%d` evaluated clean twins, delta **`%+.1f` pp**). At binary `>= %.2f` (`yes` only): **`%d/%d` (`%.1f%%`)** planted vs **`%d/%d` (`%.1f%%`)** matched clean twins (delta **`%+.1f` pp**).\n",
+			comp.UnsureThreshold, comp.YesThreshold,
+			comp.ModelLock.Alias, comp.PlantedAll.Unsure+comp.CleanEvaluatedAll.Unsure, len(comp.Passages),
+			second.PlantedAll.Unsure+second.CleanEvaluatedAll.Unsure, second.ModelLock.Alias,
+			comp.UnsureThreshold,
+			comp.PlantedAll.Flagged, comp.PlantedAll.Total, comp.PlantedAll.FlaggedRate*100,
+			comp.CleanMatchedTwin.Flagged, comp.CleanMatchedTwin.Total, comp.CleanMatchedTwin.FlaggedRate*100,
+			comp.StopRule.DeltaMatchedTwin*100,
+			comp.CleanEvaluatedAll.Flagged, comp.CleanEvaluatedAll.Total, comp.CleanEvaluatedAll.FlaggedRate*100, comp.CleanEvaluatedAll.Total,
+			comp.StopRule.DeltaEvaluatedAll*100,
+			comp.YesThreshold,
+			comp.PlantedAll.YesAt50, comp.PlantedAll.Total, comp.PlantedAll.YesAt50Rate*100,
+			comp.CleanMatchedTwin.YesAt50, comp.CleanMatchedTwin.Total, comp.CleanMatchedTwin.YesAt50Rate*100,
+			comp.StopRule.DeltaYes50MatchedTwin*100)
+		fmt.Fprintf(&b, "- **Quiet `low`-band & zero-check passages:** `%s` flagged **`%d/%d` (`%.1f%%`)** `low`-band planted passages vs **`%d/%d` (`%.1f%%`)** `low`-band clean twins, and **`%d/%d` (`%.1f%%`)** planted passages where *zero* deterministic checks fired vs **`%d/%d` (`%.1f%%`)** clean passages where *zero* deterministic checks fired.\n\n",
+			comp.ModelLock.Alias,
+			comp.PlantedLow.Flagged, comp.PlantedLow.Total, comp.PlantedLow.FlaggedRate*100,
+			comp.CleanLow.Flagged, comp.CleanLow.Total, comp.CleanLow.FlaggedRate*100,
+			comp.PlantedNoCheck.Flagged, comp.PlantedNoCheck.Total, comp.PlantedNoCheck.FlaggedRate*100,
+			compCleanNoCheck.Flagged, compCleanNoCheck.Total, compCleanNoCheck.FlaggedRate*100)
+
+		fmt.Fprintf(&b, "| Class | `%s` Planted (`>=0.35` / `@0.50`) | `%s` Clean Twin (`>=0.35` / `@0.50`) | `%s` Planted (`>=0.35` / `@0.50`) | `%s` Clean Twin (`>=0.35` / `@0.50`) | `%s` Planted `low` Band (`@0.50`) |\n",
+			second.ModelLock.Alias, second.ModelLock.Alias, comp.ModelLock.Alias, comp.ModelLock.Alias, comp.ModelLock.Alias)
+		b.WriteString("| --- | --- | --- | --- | --- | --- |\n")
+		compByClass := make(map[string]SecondClassSummary, len(comp.Classes))
+		for _, c := range comp.Classes {
+			compByClass[c.Class] = c
+		}
+		for _, cs := range second.Classes {
+			mc := compByClass[cs.Class]
+			fmt.Fprintf(&b, "| `%s` | %s | %s | **%s** | %s | %s |\n",
+				cs.Class,
+				fmtDecisionFull(cs.PlantedAll),
+				fmtDecisionFull(cs.CleanMatchedTwin),
+				fmtDecisionFull(mc.PlantedAll),
+				fmtDecisionFull(mc.CleanMatchedTwin),
+				fmtDecisionCompact(mc.PlantedLow),
+			)
+		}
+		fmt.Fprintf(&b, "| **Total** | **%s** | **%s** | **%s** | **%s** | **%s** |\n",
+			fmtDecisionFull(second.PlantedAll),
+			fmtDecisionFull(second.CleanMatchedTwin),
+			fmtDecisionFull(comp.PlantedAll),
+			fmtDecisionFull(comp.CleanMatchedTwin),
+			fmtDecisionCompact(comp.PlantedLow),
+		)
+	}
+
 	return b.String()
+}
+
+func countCleanNoCheck(items []PassageDecisionItem) DecisionTally {
+	var dt DecisionTally
+	for _, it := range items {
+		if !it.IsPlanted && len(it.Checks) == 0 {
+			dt.add(it.Decision)
+		}
+	}
+	return dt
 }
 
 func fmtDecisionFull(dt DecisionTally) string {

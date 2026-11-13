@@ -315,7 +315,7 @@ func TestSecondMeasurementStopRule(t *testing.T) {
 		}
 	}
 
-	// 5. Verify committed docs/evidence/intake-second-measurement.json and docs/intake-results.md against drift.
+	// 5. Verify committed docs/evidence/intake-second-measurement.json, docs/evidence/intake-second-measurement-mercury-decide.json, and docs/intake-results.md against drift.
 	repoRoot := filepath.Dir(corpusDir)
 	secondJSONPath := filepath.Join(repoRoot, "docs", "evidence", "intake-second-measurement.json")
 	if b, err := os.ReadFile(secondJSONPath); err == nil {
@@ -329,13 +329,34 @@ func TestSecondMeasurementStopRule(t *testing.T) {
 			recomputed.StopRule != savedSecond.StopRule {
 			t.Fatalf("saved %s summary drifted from recomputed Passages", secondJSONPath)
 		}
-		wantMD := RenderCombinedMarkdown(firstRep, &savedSecond)
+
+		var comps []SecondMeasurementReport
+		mercPath := filepath.Join(repoRoot, "docs", "evidence", "intake-second-measurement-mercury-decide.json")
+		if mb, merr := os.ReadFile(mercPath); merr == nil {
+			var savedMerc SecondMeasurementReport
+			if err := json.Unmarshal(mb, &savedMerc); err != nil {
+				t.Fatalf("unmarshal %s: %v", mercPath, err)
+			}
+			wantMercLock := DefaultMercuryDecideLock("darwin/arm64 (client -> Inception Labs API)", "api.inceptionlabs.ai")
+			if savedMerc.ModelLock != wantMercLock {
+				t.Fatalf("saved %s model_lock = %+v, want %+v", mercPath, savedMerc.ModelLock, wantMercLock)
+			}
+			recomputedMerc := SummarizeSecondMeasurement(savedMerc.CorpusSHA256, savedMerc.ModelLock, savedMerc.UnsureThreshold, savedMerc.YesThreshold, savedMerc.Passages)
+			if recomputedMerc.PlantedAll != savedMerc.PlantedAll ||
+				recomputedMerc.CleanMatchedTwin != savedMerc.CleanMatchedTwin ||
+				recomputedMerc.StopRule != savedMerc.StopRule {
+				t.Fatalf("saved %s summary drifted from recomputed Passages", mercPath)
+			}
+			comps = append(comps, savedMerc)
+		}
+
+		wantMD := RenderCombinedMarkdown(firstRep, &savedSecond, comps...)
 		gotMDBytes, err := os.ReadFile(filepath.Join(repoRoot, "docs", "intake-results.md"))
 		if err != nil {
 			t.Fatalf("read docs/intake-results.md: %v", err)
 		}
 		if string(gotMDBytes) != wantMD {
-			t.Fatalf("docs/intake-results.md drifted from RenderCombinedMarkdown(firstRep, savedSecond)")
+			t.Fatalf("docs/intake-results.md drifted from RenderCombinedMarkdown(firstRep, savedSecond, comps...)")
 		}
 	}
 }
