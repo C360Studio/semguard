@@ -1,22 +1,29 @@
 # semguard
 
-A lab that measures which defenses stop an injected document from hijacking the model that reads it, and at what
-cost. It is not a product.
+A lab that measures two things: which defenses stop an injected document from hijacking the model that reads it, and
+whether planted text in an incoming research report can be made to stand out before any model reads it. It is not a
+product.
 
 New here? [`docs/explainer.md`](docs/explainer.md) explains what we tested and what worked, with examples and no code.
 
 ## The shape
 
-Untrusted documents go in, one reader model writes, and the consumers of what it wrote must not trust it. That
-describes a RAG summarizer, a research agent, and an email triage bot alike.
+Untrusted documents go in, checks run in code, one reader model writes, and the consumers of what it wrote must not
+trust it. That describes a RAG summarizer, a research agent, and an email triage bot alike.
 
 ```text
-sources  ->  gate  ->  frame  ->  READER  ->  verify  ->  audit  ->  sink
+provider -> clean -> parse -> split -> graph -> checks -> decide -> frame -> READER -> verify -> audit -> sink
 ```
 
 | Stage | Box kind | Contract |
 | --- | --- | --- |
-| source | code | `Document{ID, Text}`: a corpus or a live fetch |
+| source / provider | code | `Document{ID, Text}` or outside provider response (corpus, servicesim, or live fetch) |
+| clean | code | normalize encoding, strip invisible control characters and active markup, canonicalize URLs |
+| parse | code | decode provider response (URL, title, author, date, text, highlights, outbound links) |
+| split | code | passages with stable IDs and byte offsets |
+| graph | code | in-memory entities (question, provider, report, passage, source, site) and edges |
+| checks | code | deterministic structural and lexical findings per passage, plus low/middle/high band |
+| decide | scores only | closed questions on escalated passages via semselect; lowers weight and reports, never deletes |
 | gate *(not built)* | scores only | `Score(ctx, paragraph) (score, version)`; redact above a threshold |
 | frame | code | `Frame(task, docs, opts) (Prompt, error)`: datamark, framing text, byte cap |
 | reader | writes text | one chat completion, free or schema-forced, no tools |
