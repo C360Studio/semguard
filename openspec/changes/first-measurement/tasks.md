@@ -1,0 +1,5 @@
+# Tasks: first-measurement
+
+- [ ] 1. Hold: OPEN-Q proposal awaits owner approval (`openspec/changes/first-measurement/proposal.md` and `openspec/changes/first-measurement/design.md`).
+- [ ] 2. Implement the mechanical `corpus/cases.json` to `servicesim` Exa scenario converter and in-process Exa measurement runner in `internal/intakemeasure/` (premise: `internal/corpus/corpus.go:55-67,100`, `intake/exa.go:176-208`, `intake/score.go:85-195`; acceptance: unit tests with `//aip:verifies intake-first-measurement-corpus-via-servicesim` verify mechanical scenario conversion, exact planted-paragraph oracle mapping, and stop-rule evaluation against `servicesim`).
+- [ ] 3. Generate `docs/evidence/intake-first-measurement.json` and `docs/intake-results.md` with per-class and per-check planted vs clean counts, separate `rank` reporting, initial vs single-tuned band counts (labelled as tuned), stop-rule verdict, and the non-benchmark caption, and archive `openspec/changes/first-measurement/` (acceptance: `task verify` green and independent review completed before `docs/decisions.md` or `docs/summary.md` draw conclusions).
