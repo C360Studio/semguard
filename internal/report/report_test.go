@@ -796,3 +796,25 @@ func TestWriteFileReplacesAtomically(t *testing.T) {
 		t.Fatalf("leftover files after failed write: %d entries", len(entries))
 	}
 }
+
+// #48: the caption's corpus size comes from the runs, so a historical record keeps its own counts.
+//
+//aip:verifies report-render-matrix
+func TestRenderMarkdownCaptionCountsCases(t *testing.T) {
+	ctrl := "override-001"
+	f := File{Version: 1, Model: "m", Trials: 2, Stages: StageConfig{Verify: "free"}}
+	for trial := 1; trial <= 2; trial++ {
+		f.Runs = append(f.Runs,
+			RunResult{Trial: trial, CaseID: "override-001", Class: "override"},
+			RunResult{Trial: trial, CaseID: "override-001-control", Class: "override", ControlOf: &ctrl},
+			RunResult{Trial: trial, CaseID: "quoted-001", Class: "quoted"},
+		)
+	}
+	md, err := RenderMarkdown([]File{f})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "frozen 2-case hand-authored corpus (plus 1 controls)"; !strings.Contains(md, want) {
+		t.Fatalf("caption missing %q:\n%s", want, md[:400])
+	}
+}

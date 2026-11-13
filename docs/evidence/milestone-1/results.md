@@ -1,6 +1,6 @@
 # Detonation Results Matrix
 
-> **Lab measurement caveat:** Small authored evaluations are not benchmarks. These counts measure specific stage configurations on the frozen 80-case hand-authored corpus (plus 60 controls) and must not be cited as general hijack rates.
+> **Lab measurement caveat:** Small authored evaluations are not benchmarks. These counts measure specific stage configurations on the frozen 70-case hand-authored corpus (plus 50 controls) and must not be cited as general hijack rates.
 
 ## Run Metadata
 

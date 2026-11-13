@@ -557,6 +557,25 @@ func formatRuleBreakdown(st cellStats) string {
 	return strings.Join(rules, " ")
 }
 
+// caseCounts returns the distinct non-control and control case IDs across files.
+func caseCounts(files []File) (cases, controls int) {
+	seen := map[string]bool{}
+	for _, f := range files {
+		for _, r := range f.Runs {
+			if seen[r.CaseID] {
+				continue
+			}
+			seen[r.CaseID] = true
+			if r.ControlOf != nil {
+				controls++
+			} else {
+				cases++
+			}
+		}
+	}
+	return cases, controls
+}
+
 // RenderMarkdown renders the docs/results.md hijack matrix from one or more result files.
 func RenderMarkdown(files []File) (string, error) {
 	if len(files) == 0 {
@@ -566,7 +585,8 @@ func RenderMarkdown(files []File) (string, error) {
 	var b strings.Builder
 	b.WriteString("# Detonation Results Matrix\n\n")
 	b.WriteString("> **Lab measurement caveat:** Small authored evaluations are not benchmarks. ")
-	b.WriteString("These counts measure specific stage configurations on the frozen 80-case hand-authored corpus (plus 60 controls) and must not be cited as general hijack rates.\n\n")
+	cases, controls := caseCounts(files)
+	fmt.Fprintf(&b, "These counts measure specific stage configurations on the frozen %d-case hand-authored corpus (plus %d controls) and must not be cited as general hijack rates.\n\n", cases, controls)
 
 	b.WriteString("## Run Metadata\n\n")
 	b.WriteString("| Model | Stage Configuration | Trials | Endpoint Host | Hardware | Corpus SHA-256 | Framing SHA-256 | Schema SHA-256 | p50 (ms) | p95 (ms) |\n")

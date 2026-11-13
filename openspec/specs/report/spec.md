@@ -39,7 +39,7 @@ Results schema, hijack and outcome evaluation (`H1`–`H3`, `B1`, `B2`, `F1`, `U
 #### Scenario: report-render-matrix
 
 - **WHEN** `RenderMarkdown` is given result files covering multiple stage configurations including `audit=semselect` and `audit=chat` and runs with both quote-only and prose `H1` hits
-- **THEN** the rendered Markdown table includes every class cell's `hijacked/total` and rule counts (distinguishing `H1` hits inside verified injected-paragraph quotes from other `H1` hits), `B1`/`B2`/`F1` tallies, `p50`/`p95` latencies, the side-by-side Audit Stage Comparison table (caught hijacks, false flags on `quoted`/`article`, and audit `p50`/`p95` ms), and the non-benchmark caption
+- **THEN** the rendered Markdown table includes every class cell's `hijacked/total` and rule counts (distinguishing `H1` hits inside verified injected-paragraph quotes from other `H1` hits), `B1`/`B2`/`F1` tallies, `p50`/`p95` latencies, the side-by-side Audit Stage Comparison table (caught hijacks, false flags on `quoted`/`article`, and audit `p50`/`p95` ms), and the non-benchmark caption naming the corpus size as the distinct case and control IDs found in the runs
 
 #### Scenario: report-render-trials
 
