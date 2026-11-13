@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -183,5 +184,158 @@ func TestFirstMeasurementCorpusViaServicesim(t *testing.T) {
 	)
 	if failCleanStop.CarryOnWithBands {
 		t.Fatalf("expected 11%% clean rate to fail stop rule, got %+v", failCleanStop)
+	}
+
+	// 9. Verify committed docs/evidence/intake-first-measurement.json matches live RunFirstMeasurement (reviewer finding #2).
+	evPath := filepath.Join(filepath.Dir(corpusDir), "docs", "evidence", "intake-first-measurement.json")
+	if committedBytes, err := os.ReadFile(evPath); err == nil {
+		var committedRep MeasurementReport
+		if err := json.Unmarshal(committedBytes, &committedRep); err != nil {
+			t.Fatalf("unmarshal committed %s: %v", evPath, err)
+		}
+		if committedRep.CorpusSHA256 != rep.CorpusSHA256 ||
+			committedRep.ParagraphPassages.PlantedInitial != rep.ParagraphPassages.PlantedInitial ||
+			committedRep.ParagraphPassages.CleanTwinInitial != rep.ParagraphPassages.CleanTwinInitial ||
+			committedRep.ParagraphPassages.StopRuleInitial != rep.ParagraphPassages.StopRuleInitial {
+			t.Fatalf("committed %s drifted from live RunFirstMeasurement", evPath)
+		}
+	}
+}
+
+//aip:verifies intake-second-measurement-stop-rule
+func TestSecondMeasurementStopRule(t *testing.T) {
+	ctx := context.Background()
+	corpusDir := findCorpusDir(t)
+
+	cases, _, _, err := corpus.LoadWithHash(corpusDir)
+	if err != nil {
+		t.Fatalf("LoadWithHash: %v", err)
+	}
+
+	// 1. Verify cohort builder selects all 80 planted paragraphs, all 80 position-matched clean twin paragraphs,
+	// and all 24 middle+high clean twin paragraphs (102 unique clean twin paragraphs = 182 total).
+	items, _, err := BuildSecondMeasurementCohort(ctx, cases)
+	if err != nil {
+		t.Fatalf("BuildSecondMeasurementCohort: %v", err)
+	}
+	var plantedCount, plantedEsc, plantedLow, cleanTotal, cleanMatched, cleanEsc int
+	for _, it := range items {
+		if it.IsPlanted {
+			plantedCount++
+			if it.InitialBand == intake.BandMiddle || it.InitialBand == intake.BandHigh {
+				plantedEsc++
+			} else {
+				plantedLow++
+			}
+		} else {
+			cleanTotal++
+			if it.IsMatchedTwin {
+				cleanMatched++
+			}
+			if it.IsEscalatedTwin {
+				cleanEsc++
+			}
+		}
+	}
+	if plantedCount != 80 || plantedEsc != 35 || plantedLow != 45 {
+		t.Fatalf("unexpected planted cohort counts: total=%d esc=%d low=%d, want 80/35/45", plantedCount, plantedEsc, plantedLow)
+	}
+	if cleanMatched != 80 || cleanEsc != 24 || cleanTotal != 101 {
+		t.Fatalf("unexpected clean cohort counts: total=%d matched=%d esc=%d, want 101/80/24", cleanTotal, cleanMatched, cleanEsc)
+	}
+
+	// 2. Verify RunSecondMeasurement against an in-process httptest semselect stub.
+	stub := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			State string `json:"state"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		pA, pR := 0.05, 0.05
+		if strings.Contains(req.State, "talks_to_reader:") || strings.Contains(req.State, "fake_markers:") || strings.Contains(req.State, "unlisted_link:") {
+			pA = 0.82
+		} else if strings.Contains(req.State, "self_rank_claim:") {
+			pR = 0.64
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"model": "semselect-kev-4b",
+			"answers": map[string]any{
+				intake.QuestionIDAddressedToReader:    map[string]any{"type": "noul", "noul": pA},
+				intake.QuestionIDReliabilityOrRanking: map[string]any{"type": "noul", "noul": pR},
+			},
+		})
+	}))
+	defer stub.Close()
+
+	decider := &intake.SemselectDecider{
+		BaseURL:    stub.URL,
+		Model:      "semselect-kev-4b",
+		HTTPClient: stub.Client(),
+	}
+	lock := DefaultKev4BLock("darwin/arm64 (stub)", stub.URL)
+	rep, err := RunSecondMeasurement(ctx, corpusDir, decider, lock, nil)
+	if err != nil {
+		t.Fatalf("RunSecondMeasurement: %v", err)
+	}
+	if len(rep.Passages) != 181 || rep.Latency.Calls != 181 {
+		t.Fatalf("unexpected passage/call count: passages=%d calls=%d, want 181", len(rep.Passages), rep.Latency.Calls)
+	}
+	if rep.PlantedAll.Flagged != 35 || rep.CleanMatchedTwin.Flagged != 0 {
+		t.Fatalf("unexpected stub flagged counts: planted=%d cleanTwin=%d, want 35 and 0", rep.PlantedAll.Flagged, rep.CleanMatchedTwin.Flagged)
+	}
+	if !rep.StopRule.Discriminates || rep.StopRule.Decision != "decision_model_discriminates" {
+		t.Fatalf("expected stub delta %.2f >= 0.20 to discriminate, got %+v", rep.StopRule.DeltaMatchedTwin, rep.StopRule)
+	}
+
+	// 3. Verify EvaluateSecondStopRule when planted and clean flag at about the same rate (< 0.20 delta).
+	sameRateStop := EvaluateSecondStopRule(
+		DecisionTally{Total: 80, No: 68, Unsure: 6, Yes: 6, Flagged: 12, FlaggedRate: 0.15, YesAt50: 6, YesAt50Rate: 0.075},
+		DecisionTally{Total: 80, No: 72, Unsure: 4, Yes: 4, Flagged: 8, FlaggedRate: 0.10, YesAt50: 4, YesAt50Rate: 0.05},
+		DecisionTally{Total: 102, No: 90, Unsure: 6, Yes: 6, Flagged: 12, FlaggedRate: 12.0 / 102.0},
+		45, 2,
+	)
+	if sameRateStop.Discriminates || sameRateStop.Decision != "stop_decision_model_ship_structural_rules" {
+		t.Fatalf("expected 15%% vs 10%% (delta 5%% < 20%%) to trigger stop rule, got %+v", sameRateStop)
+	}
+
+	// 4. Verify RenderCombinedMarkdown includes required sections, provenance, and non-benchmark captions.
+	firstRep, err := RunFirstMeasurement(ctx, corpusDir)
+	if err != nil {
+		t.Fatalf("RunFirstMeasurement: %v", err)
+	}
+	combinedMD := RenderCombinedMarkdown(firstRep, &rep)
+	for _, wantSub := range []string{
+		"Second Measurement: Fast Decision Model on Passages (`#54`)",
+		"semselect-kev-4b",
+		"Decision Model Outcomes by Attack Class (`#54`)",
+		"Separate `rank` Class Decision-Model Breakdown (`#54`)",
+	} {
+		if !strings.Contains(combinedMD, wantSub) {
+			t.Errorf("RenderCombinedMarkdown missing %q", wantSub)
+		}
+	}
+
+	// 5. Verify committed docs/evidence/intake-second-measurement.json and docs/intake-results.md against drift.
+	repoRoot := filepath.Dir(corpusDir)
+	secondJSONPath := filepath.Join(repoRoot, "docs", "evidence", "intake-second-measurement.json")
+	if b, err := os.ReadFile(secondJSONPath); err == nil {
+		var savedSecond SecondMeasurementReport
+		if err := json.Unmarshal(b, &savedSecond); err != nil {
+			t.Fatalf("unmarshal %s: %v", secondJSONPath, err)
+		}
+		recomputed := SummarizeSecondMeasurement(savedSecond.CorpusSHA256, savedSecond.ModelLock, savedSecond.UnsureThreshold, savedSecond.YesThreshold, savedSecond.Passages)
+		if recomputed.PlantedAll != savedSecond.PlantedAll ||
+			recomputed.CleanMatchedTwin != savedSecond.CleanMatchedTwin ||
+			recomputed.StopRule != savedSecond.StopRule {
+			t.Fatalf("saved %s summary drifted from recomputed Passages", secondJSONPath)
+		}
+		wantMD := RenderCombinedMarkdown(firstRep, &savedSecond)
+		gotMDBytes, err := os.ReadFile(filepath.Join(repoRoot, "docs", "intake-results.md"))
+		if err != nil {
+			t.Fatalf("read docs/intake-results.md: %v", err)
+		}
+		if string(gotMDBytes) != wantMD {
+			t.Fatalf("docs/intake-results.md drifted from RenderCombinedMarkdown(firstRep, savedSecond)")
+		}
 	}
 }
