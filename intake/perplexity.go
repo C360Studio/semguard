@@ -154,7 +154,8 @@ type PerplexityIntakeResult struct {
 type ExaContentsFetcher func(ctx context.Context, urls []string) ([]byte, error)
 
 // NewHTTPExaContentsFetcher returns an ExaContentsFetcher that POSTs {"urls": urls, "text": true}
-// to baseURL+"/contents" using client and apiKey.
+// to baseURL+"/contents" using client and apiKey. Responses larger than DefaultMaxParseBytes
+// are rejected with ErrParseOversized before reading unbounded bytes into memory.
 func NewHTTPExaContentsFetcher(client *http.Client, baseURL, apiKey string) ExaContentsFetcher {
 	if client == nil {
 		client = http.DefaultClient
@@ -184,12 +185,15 @@ func NewHTTPExaContentsFetcher(client *http.Client, baseURL, apiKey string) ExaC
 			return nil, err
 		}
 		defer func() { _ = resp.Body.Close() }()
-		body, err := io.ReadAll(resp.Body)
+		body, err := io.ReadAll(io.LimitReader(resp.Body, int64(DefaultMaxParseBytes)+1))
 		if err != nil {
 			return nil, err
 		}
+		if len(body) > DefaultMaxParseBytes {
+			return nil, fmt.Errorf("%w: %d > %d", ErrParseOversized, len(body), DefaultMaxParseBytes)
+		}
 		if resp.StatusCode != http.StatusOK {
-			return nil, fmt.Errorf("intake: Exa /contents status %d: %s", resp.StatusCode, string(body))
+			return nil, fmt.Errorf("intake: Exa /contents status %d: %s", resp.StatusCode, truncateDetail(strings.TrimSpace(string(body))))
 		}
 		return body, nil
 	}
@@ -434,7 +438,8 @@ var inlineCitationMarkerRe = regexp.MustCompile(`\[(\d+)\]`)
 
 // ProcessPerplexityAgent parses a Perplexity POST /v1/agent response, maps the answer to its sources,
 // fetches cited pages via Exa POST /contents using fetcher, runs page-level and answer-level checks,
-// and returns the combined PerplexityIntakeResult.
+// and returns the combined PerplexityIntakeResult. When fetcher is nil, no /contents request is made
+// and any cited URLs are reported as unfetched_citation.
 func ProcessPerplexityAgent(
 	ctx context.Context,
 	question string,
@@ -499,6 +504,7 @@ func ResolvePerplexityWithContents(
 	}
 
 	// 1. Validate annotations against answer length and search_results.
+	// shortcut: annotation start_index/end_index are treated as UTF-8 byte offsets matching servicesim; verify byte vs rune/UTF-16 indexing on non-ASCII responses in #55.
 	type validAnnotation struct {
 		ann      PerplexityAnnotation
 		resultID int
@@ -546,12 +552,22 @@ func ResolvePerplexityWithContents(
 	var inlineMarkers []inlineMarker
 	for _, loc := range inlineCitationMarkerRe.FindAllStringSubmatchIndex(pplx.Answer, -1) {
 		fullStart, fullEnd := loc[0], loc[1]
+		rawTok := pplx.Answer[fullStart:fullEnd]
 		numStr := pplx.Answer[loc[2]:loc[3]]
 		n, convErr := strconv.Atoi(numStr)
 		if convErr != nil {
+			span := [2]int{fullStart, fullEnd}
+			recordFinding(AnswerFinding{
+				Check:  AnswerCheckDanglingMarker,
+				Detail: fmt.Sprintf("inline citation marker %s points to no search_results entry", rawTok),
+				Marker: rawTok,
+				Span:   &span,
+			})
+			inlineMarkers = append(inlineMarkers, inlineMarker{
+				start: fullStart, end: fullEnd, raw: rawTok, valid: false,
+			})
 			continue
 		}
-		rawTok := pplx.Answer[fullStart:fullEnd]
 		sr, ok := byID[n]
 		if !ok {
 			span := [2]int{fullStart, fullEnd}
@@ -736,8 +752,8 @@ func ResolvePerplexityWithContents(
 }
 
 // collectCitedURLs returns the ordered, deduplicated list of search_results URLs cited
-// by the answer (via valid annotations or inline [n] markers), or all search_results URLs
-// when the answer cites all/any search_results.
+// by the answer via valid in-bounds annotations or valid inline [n] markers.
+// Uncited search_results entries are not included.
 func collectCitedURLs(pplx PerplexityResponse) []string {
 	byID := make(map[int]PerplexitySearchResult, len(pplx.SearchResults))
 	byCanon := make(map[string]PerplexitySearchResult, len(pplx.SearchResults))
@@ -759,6 +775,9 @@ func collectCitedURLs(pplx PerplexityResponse) []string {
 	}
 
 	for _, ann := range pplx.Annotations {
+		if ann.StartIndex < 0 || ann.EndIndex <= ann.StartIndex || ann.EndIndex > len(pplx.Answer) {
+			continue
+		}
 		if sr, ok := byCanon[ann.CanonicalURL]; ok {
 			add(sr)
 		}
@@ -769,10 +788,6 @@ func collectCitedURLs(pplx PerplexityResponse) []string {
 				add(sr)
 			}
 		}
-	}
-	// Include any remaining search_results so every source returned by Perplexity is resolved.
-	for _, sr := range pplx.SearchResults {
-		add(sr)
 	}
 	return out
 }
@@ -854,5 +869,5 @@ func isSubstantiveSentence(s string) bool {
 	}
 	// Strip inline [n] markers before counting content tokens.
 	withoutMarkers := inlineCitationMarkerRe.ReplaceAllString(trimmed, " ")
-	return len(extractContentTokens(withoutMarkers)) >= 4
+	return len(extractContentTokens(withoutMarkers)) >= 5
 }

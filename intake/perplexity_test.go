@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"slices"
 	"strings"
 	"testing"
@@ -52,12 +53,16 @@ sources:
     url: https://paywall.gamma.test/paper
     title: "Gamma Paywalled Paper"
     text: "Paywalled content that Exa /contents will fail to crawl."
+  - id: src-uncited
+    url: https://uncited.delta.test/ignored
+    title: "Delta Uncited Background Note"
+    text: "Uncited search result that is never referenced in the answer."
 providers:
   perplexity_agent:
     response_id: resp_9f2c1d8b7a6e5f4c3b2a1908f7e6d5c4
     message_id: msg_4e3d2c1b0a9f8e7d6c5b4a39281706f5
     model: openai/gpt-5
-    answer: "Alpha Raft Consensus Guide shows tail latency stays below 10ms, and Beta Distributed Notes details log matching [99]. Unsourced background claim about Byzantine fault tolerance in space probes with https://sneaky-unlisted.test/drop."
+    answer: "Alpha Raft Consensus Guide shows tail latency stays below 10ms, and Beta Distributed Notes details log matching [3][99]. Unsourced background claim about Byzantine fault tolerance in space probes with https://sneaky-unlisted.test/drop."
     queries:
       - "How does Raft consensus achieve low tail latency?"
     search_results:
@@ -69,6 +74,8 @@ providers:
         snippet: "Raft consensus replication uses log matching and leader completeness."
       - source: src-paywalled
         snippet: "Gamma paper on consensus."
+      - source: src-uncited
+        snippet: "Delta uncited note that should not be counted in CitedURLs."
     annotations:
       - source: src-alpha
         start_index: 0
@@ -107,6 +114,11 @@ providers:
           error:
             tag: "CRAWL_NOT_FOUND"
             http_status_code: 404
+        - id: "https://uncited.delta.test/ignored"
+          status: "error"
+          error:
+            tag: "CRAWL_TIMEOUT"
+            http_status_code: 504
       cost_dollars:
         total: 0.003
 `
@@ -173,8 +185,8 @@ func TestPerplexityAgentAndExaContentsAgainstServicesim(t *testing.T) {
 	if res.Response.ID != "resp_9f2c1d8b7a6e5f4c3b2a1908f7e6d5c4" || res.Response.Model != "openai/gpt-5" {
 		t.Fatalf("unexpected response header: %+v", res.Response)
 	}
-	if len(res.Response.SearchResults) != 3 {
-		t.Fatalf("len(SearchResults) = %d, want 3", len(res.Response.SearchResults))
+	if len(res.Response.SearchResults) != 4 {
+		t.Fatalf("len(SearchResults) = %d, want 4", len(res.Response.SearchResults))
 	}
 	for i, sr := range res.Response.SearchResults {
 		if sr.ID != i+1 {
@@ -209,9 +221,16 @@ func TestPerplexityAgentAndExaContentsAgainstServicesim(t *testing.T) {
 		}
 	}
 
-	// 4. Verify cited page fetch statistics (2 fetched, 1 failed CRAWL_NOT_FOUND).
+	// 4. Verify cited page fetch statistics: only the 3 cited sources (1, 2 via annotations; 3 via [3]) are counted;
+	// uncited search_results[3] (id=4, https://uncited.delta.test/ignored) is excluded from CitedURLs and unfetched_citation.
 	if res.CitedCount != 3 || res.FetchedCount != 2 || res.UnfetchedCount != 1 {
-		t.Fatalf("cited=%d fetched=%d unfetched=%d, want 3, 2, 1", res.CitedCount, res.FetchedCount, res.UnfetchedCount)
+		t.Fatalf("cited=%d fetched=%d unfetched=%d, want 3, 2, 1 (citedURLs=%v)", res.CitedCount, res.FetchedCount, res.UnfetchedCount, res.CitedURLs)
+	}
+	if slices.Contains(res.CitedURLs, "https://uncited.delta.test/ignored") {
+		t.Fatalf("uncited search_result should not appear in CitedURLs: %v", res.CitedURLs)
+	}
+	if res.AnswerCheckCounts[AnswerCheckUnfetchedCitation] != 1 {
+		t.Fatalf("AnswerCheckUnfetchedCitation = %d, want 1 (only cited src-paywalled)", res.AnswerCheckCounts[AnswerCheckUnfetchedCitation])
 	}
 	if res.UnfetchedShare <= 0.33 || res.UnfetchedShare >= 0.34 {
 		t.Fatalf("UnfetchedShare = %v, want ~1/3", res.UnfetchedShare)
@@ -264,10 +283,10 @@ func TestPerplexityInlineBracketMappingFallback(t *testing.T) {
 				Snippet:      "Raft log replication details.",
 			},
 		},
-		// No annotations: mapping must fall back to inline [1] and [2] markers, flag [5] as dangling,
-		// and flag the third sentence as unsourced.
+		// No annotations: mapping must fall back to inline [1] and [2] markers, flag [5] and overflowing
+		// [99999999999999999999999] as dangling, and flag the third sentence as unsourced.
 		Answer: "Raft election timeouts prevent split votes in consensus clusters [1]. " +
-			"Log replication commits entries across follower nodes [2][5]. " +
+			"Log replication commits entries across follower nodes [2][5][99999999999999999999999]. " +
 			"Completely unsourced claim about distributed lock managers in storage engines.",
 		Annotations: nil,
 	}
@@ -323,8 +342,8 @@ func TestPerplexityInlineBracketMappingFallback(t *testing.T) {
 		t.Errorf("sentence 2 citations = %v, want []", res.SentenceCitations[2].SearchResultIDs)
 	}
 
-	if res.AnswerCheckCounts[AnswerCheckDanglingMarker] != 1 {
-		t.Errorf("AnswerCheckDanglingMarker = %d, want 1", res.AnswerCheckCounts[AnswerCheckDanglingMarker])
+	if res.AnswerCheckCounts[AnswerCheckDanglingMarker] != 2 {
+		t.Errorf("AnswerCheckDanglingMarker = %d, want 2 ([5] and overflow marker)", res.AnswerCheckCounts[AnswerCheckDanglingMarker])
 	}
 	if res.AnswerCheckCounts[AnswerCheckUnsourcedSentence] != 1 {
 		t.Errorf("AnswerCheckUnsourcedSentence = %d, want 1", res.AnswerCheckCounts[AnswerCheckUnsourcedSentence])
@@ -391,5 +410,17 @@ func TestParsePerplexityRejectsUnexpectedShape(t *testing.T) {
 	big := bytes.Repeat([]byte(" "), 128)
 	if _, err := ParsePerplexityAgent(ctx, big, ParseOptions{MaxBytes: 64}); !errors.Is(err, ErrParseOversized) {
 		t.Fatalf("expected ErrParseOversized, got %v", err)
+	}
+
+	// Verify NewHTTPExaContentsFetcher bounds response reads to DefaultMaxParseBytes.
+	oversizedSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(bytes.Repeat([]byte("x"), DefaultMaxParseBytes+1))
+	}))
+	defer oversizedSrv.Close()
+
+	fetcher := NewHTTPExaContentsFetcher(oversizedSrv.Client(), oversizedSrv.URL, "test-key")
+	if _, err := fetcher(ctx, []string{"https://example.com/a"}); !errors.Is(err, ErrParseOversized) {
+		t.Fatalf("expected ErrParseOversized from NewHTTPExaContentsFetcher, got %v", err)
 	}
 }
