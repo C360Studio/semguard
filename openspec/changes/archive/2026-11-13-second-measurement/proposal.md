@@ -1,5 +1,7 @@
 # Second measurement: fast decision model on passages with check findings
 
+Approved-by: Coby (2026-11-13) sha256:d2eb68fbca96
+
 Track: design (adds the passage-level `semselect` decision-model stage and second-measurement requirement to `openspec/specs/intake/spec.md`, and requires an owner ruling on the `semselect` model lockfile, passage cohort scope after `#53`'s stop rule, and `noul` probability cutoff).
 
 ## Why

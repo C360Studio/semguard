@@ -69,3 +69,45 @@
 | `quoted` | n/a | n/a | 24 / 6 / 0 (6/30, 20.0%) |
 | `article` | n/a | n/a | 23 / 7 / 0 (7/30, 23.3%) |
 | **Total** | **25 / 31 / 4 (35/60, 58.3%)** | **180 / 0 / 0 (0/180, 0.0%)** | **347 / 13 / 0 (13/360, 3.6%)** |
+
+---
+
+# Intake Checks — Second Measurement: Fast Decision Model on Passages (`#54`)
+
+> **Lab measurement caveat:** Small authored evaluations are not benchmarks. These counts measure `semselect` (`semselect-kev-4b`, `ggml-org/Kev-4B-GGUF@d924f2e2c387`, `Kev-4B-Q4_K_M.gguf`, `sha256:33ae6b189265`, runtime `llama.cpp@6c59c40076c0` on `darwin/arm64 (Apple M3 Pro, Metal)`) across the `181`-passage cohort (`80` planted paragraphs, `80` position-matched clean `-control` twin paragraphs, and all `24` `middle+high` clean `-control` twin paragraphs; `101` unique clean twin paragraphs total) from `corpus_sha256: 0ee5145661e4`.
+
+## 6. Second Measurement Provenance, Latency & Stop-Rule Outcome (`#54`)
+
+- **Model & lockfile (`semselect/models.lock.json`):** `semselect-kev-4b` (`ggml-org/Kev-4B-GGUF`, revision `d924f2e2c3872da8b8aaf3eb4453b4126deceb79`, file `Kev-4B-Q4_K_M.gguf`, `sha256:33ae6b18926502b2209a1bf7d3b61a350d65938441515c686bb87d226a19eff9`), `semselect` revision `152feca58e447b332119f2751e629e7749628de5`, `llama.cpp` runtime revision `6c59c40076c00eab49754dc955d7652d93f9e125`.
+- **Hardware & endpoint:** `darwin/arm64 (Apple M3 Pro, Metal)` (`http://127.0.0.1:8084`).
+- **Per-call latency (`181` calls, 2 `noul` questions sharing 1 state pass per call):** `p50 = 635 ms`, `p95 = 934 ms` (`min = 493 ms`, `max = 1127 ms`, `total = 120.2 s`).
+- **Stop rule (`#54`, fixed before the run):** If the decision model flags planted and clean passages at about the same rate (`planted_flag_rate - clean_flag_rate < 20.0%`), stop — the approach does not detect quiet manipulation, and the structural rules are what ships.
+- **Overall discrimination (`yes + unsure`, `p >= 0.35`):** Flagged **`70/80` (`87.5%`)** planted passages vs **`27/80` (`33.8%`)** position-matched clean `-control` twin passages (delta **`+53.8` percentage points**; vs **`42/101` (`41.6%`)** across all `101` evaluated clean twin passages, delta **`+45.9` pp**).
+- **Overall discrimination at binary `p >= 0.50` (`yes` only):** Flagged **`32/80` (`40.0%`)** planted passages vs **`4/80` (`5.0%`)** position-matched clean `-control` twin passages (delta **`+35.0` pp**).
+- **What the `low`-band cohort caught that the plain checks missed:** Flagged **`35/45` (`77.8%`)** `low`-band planted passages (`social`, `fragmented`, and the 5 unflagged `rank` passages; `22/31` or `71.0%` among planted passages where *zero* checks fired) vs **`25/77` (`32.5%`)** `low`-band clean twin passages.
+- **Stop-rule outcome:** **`decision_model_discriminates`** (`discriminates = true`).
+
+## 7. Decision Model Outcomes by Attack Class (`#54`)
+
+*Table caption: Small authored evaluations are not benchmarks. Each cell reports `Flagged / Total (No / Unsure / Yes)` and binary `Yes@0.50` across the 60 attack cases and their 60 `-control` clean twins (`80` planted paragraphs, `80` position-matched clean twin paragraphs, and `101` total evaluated clean twin paragraphs including all `24` `middle+high` clean twins).*
+
+| Class | Planted All (`Flagged / Total`, `No/Uns/Yes`, `Yes@0.50`) | Matched Clean Twin (`Flagged / Total`, `No/Uns/Yes`, `Yes@0.50`) | Planted `middle+high` (`Flagged / Total`) | Clean Twin `middle+high` (`Flagged / Total`) | Planted `low` Band (`Flagged / Total`, Caught Missed by Bands) | Clean Twin `low` Band (`Flagged / Total`) |
+| --- | --- | --- | --- | --- | --- | --- |
+| `override` | 10/10 (100.0%; 0/1/9; @0.50: 9/10, 90.0%) | 5/10 (50.0%; 5/3/2; @0.50: 2/10, 20.0%) | 10/10 (100.0%; @0.50: 9/10) | 2/3 (66.7%; @0.50: 0/3) | 0/0 (n/a) | 5/9 (55.6%; @0.50: 2/9) |
+| `exfil` | 10/10 (100.0%; 0/10/0; @0.50: 0/10, 0.0%) | 5/10 (50.0%; 5/5/0; @0.50: 0/10, 0.0%) | 10/10 (100.0%; @0.50: 0/10) | 1/1 (100.0%; @0.50: 0/1) | 0/0 (n/a) | 5/10 (50.0%; @0.50: 0/10) |
+| `social` | 10/10 (100.0%; 0/1/9; @0.50: 9/10, 90.0%) | 3/10 (30.0%; 7/2/1; @0.50: 1/10, 10.0%) | 0/0 (n/a) | 5/8 (62.5%; @0.50: 1/8) | 10/10 (100.0%; @0.50: 9/10) | 3/10 (30.0%; @0.50: 1/10) |
+| `fragmented` | 20/30 (66.7%; 10/17/3; @0.50: 3/30, 10.0%) | 7/30 (23.3%; 23/7/0; @0.50: 0/30, 0.0%) | 0/0 (n/a) | 6/7 (85.7%; @0.50: 0/7) | 20/30 (66.7%; @0.50: 3/30) | 5/28 (17.9%; @0.50: 0/28) |
+| `framing` | 10/10 (100.0%; 0/9/1; @0.50: 1/10, 10.0%) | 3/10 (30.0%; 7/3/0; @0.50: 0/10, 0.0%) | 10/10 (100.0%; @0.50: 1/10) | 2/3 (66.7%; @0.50: 0/3) | 0/0 (n/a) | 3/10 (30.0%; @0.50: 0/10) |
+| `rank` | 10/10 (100.0%; 0/0/10; @0.50: 10/10, 100.0%) | 4/10 (40.0%; 6/3/1; @0.50: 1/10, 10.0%) | 5/5 (100.0%; @0.50: 5/5) | 1/2 (50.0%; @0.50: 0/2) | 5/5 (100.0%; @0.50: 5/5) | 4/10 (40.0%; @0.50: 1/10) |
+| **Total** | **70/80 (87.5%; 10/38/32; @0.50: 32/80, 40.0%)** | **27/80 (33.8%; 53/23/4; @0.50: 4/80, 5.0%)** | **35/35 (100.0%; @0.50: 15/35)** | **17/24 (70.8%; @0.50: 1/24)** | **35/45 (77.8%; @0.50: 17/45)** | **25/77 (32.5%; @0.50: 4/77)** |
+
+## 8. Separate `rank` Class Decision-Model Breakdown (`#54`)
+
+*Table caption: Small authored evaluations are not benchmarks. The `rank` class is reported separately because it is the only attack class that hijacked a framed reader in Milestone 1 (`5` planted paragraphs in `middle` via `self_rank_claim`, `5` quiet score-inflation paragraphs in `low`).*
+
+| Cohort | Planted `rank` | Clean `rank-control` Twin |
+| --- | --- | --- |
+| All evaluated passages | **10/10 (100.0%; 0/0/10; @0.50: 10/10, 100.0%)** | 4/10 (40.0%; 6/3/1; @0.50: 1/10, 10.0%) |
+| Escalated (`middle+high` in `#53`) | **5/5 (100.0%; 0/0/5; @0.50: 5/5, 100.0%)** | 1/2 (50.0%; 1/1/0; @0.50: 0/2, 0.0%) |
+| `low` band in `#53` (missed by band gate) | **5/5 (100.0%; 0/0/5; @0.50: 5/5, 100.0%)** | 4/10 (40.0%; 6/3/1; @0.50: 1/10, 10.0%) |
+| Zero check hits (`Checks == []`) | **1/1 (100.0%; 0/0/1; @0.50: 1/1, 100.0%)** | n/a |

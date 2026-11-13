@@ -46,18 +46,20 @@ type ScoreOptions struct {
 }
 
 // ScoredPassage wraps a Passage with its triggered checks, weighted score, band,
-// and down-weight factor. Flagged passages are down-weighted and reported, never deleted.
+// down-weight factor, and optional decision-model outcome (#54).
+// Flagged passages are down-weighted and reported, never deleted.
 type ScoredPassage struct {
-	Passage    Passage     `json:"passage"`
-	ReportID   string      `json:"report_id"`
-	ReportURL  string      `json:"report_url"`
-	Site       string      `json:"site"`
-	Hits       []CheckHit  `json:"hits,omitempty"`
-	Checks     []CheckName `json:"checks,omitempty"`
-	Score      int         `json:"score"`
-	Band       Band        `json:"band"`
-	Flagged    bool        `json:"flagged"`
-	WeightMult float64     `json:"weight_mult"`
+	Passage    Passage         `json:"passage"`
+	ReportID   string          `json:"report_id"`
+	ReportURL  string          `json:"report_url"`
+	Site       string          `json:"site"`
+	Hits       []CheckHit      `json:"hits,omitempty"`
+	Checks     []CheckName     `json:"checks,omitempty"`
+	Score      int             `json:"score"`
+	Band       Band            `json:"band"`
+	Flagged    bool            `json:"flagged"`
+	WeightMult float64         `json:"weight_mult"`
+	Decision   *DecisionResult `json:"decision,omitempty"`
 }
 
 // ScoredReport holds a Report along with its ScoredPassages.
