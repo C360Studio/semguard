@@ -1,6 +1,6 @@
 # SemGuard Report: Defending AI Readers Against Prompt Injection
 
-**Date:** November 2026 | **Models Tested:** OpenAI `gpt-5.4` & Google `gemini-3.8-flash` | **Scope:** 5,040 reader runs (12 configurations × 140 cases × 3 trials), plus the milestone-1 auditor replay
+**Date:** November 2026 | **Models Tested:** OpenAI `gpt-5.4` & Google `gemini-3.8-flash` (reader); `semselect-kev-4b` & `mercury-decide` (intake decision model) | **Scope:** 5,040 reader runs (12 configurations × 140 cases × 3 trials), milestone-1 auditor replay, and 140-case / 181-passage intake evaluation
 
 > **Scope Note:** Small authored evaluations are not benchmarks. This is a controlled laboratory evaluation on a frozen 140-case test suite (60 adversarial attacks, 20 benign edge-case documents, and 60 clean control documents), each run 3 times. Three trials show whether a hit repeats; they are not a significance test. It measures which specific defenses earn their complexity in our pipeline and must not be cited as a general industry benchmark. See [What the lab has not measured](../README.md#what-the-lab-has-not-measured) in `README.md` for explicit scope limits.
 

@@ -1,9 +1,9 @@
-# Architectural & Stage Decisions (Milestone 1 — v0)
+# Architectural & Stage Decisions (Milestones 1–4)
 
-**Date:** 2026-11-12 (Decisions 1 and 3, #30 rerun); 2026-11-11 (Decision 2)  
+**Date:** 2026-11-13 (Decision 4, #53 & #54 intake checks); 2026-11-12 (Decisions 1 and 3, #30 rerun); 2026-11-11 (Decision 2)  
 **Architecture tested:** `darwin/arm64` (Apple M3 Pro, Metal), native Apple Silicon, concurrency 2  
 **Corpus:** `0ee5145661e4e39c772d509332f12e98fb5a82747cfb42f414fc9c601b4a90f9` (80 cases across 8 classes + 60 clean control twins = 140 runs per trial, 3 trials = 420 runs per configuration)  
-**Evidence:** [`docs/results.md`](./results.md) and [`docs/evidence/`](./evidence/); Decision 2's audit evidence is the milestone-1 record in [`docs/evidence/milestone-1/`](./evidence/milestone-1/results.md)
+**Evidence:** [`docs/results.md`](./results.md), [`docs/intake-results.md`](./intake-results.md), and [`docs/evidence/`](./evidence/); Decision 2's audit evidence is the milestone-1 record in [`docs/evidence/milestone-1/`](./evidence/milestone-1/results.md)
 
 > **Lab measurement caveat:** Small authored evaluations are not benchmarks. These decisions record what earned its place on the frozen 80-case hand-authored corpus (plus 60 controls) across two reader models (`gpt-5.4` and `gemini-3.8-flash`). Three trials show whether a hit repeats; they are not a significance test.
 
