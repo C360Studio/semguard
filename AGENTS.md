@@ -10,8 +10,9 @@ A lab, not a product. It answers two questions with numbers.
 The first is answered (milestone 1, `docs/results.md`): which defenses stop an injected document from hijacking the
 model that reads it, and at what cost.
 
-The second is open (milestone 4): when research reports arrive from outside providers, do deterministic checks and a
-fast decision model make planted text stand out before any model reads it, and at what cost.
+The second is answered (milestone 4, `docs/intake-results.md`): when research reports arrive from outside providers,
+do deterministic checks and a fast decision model make planted text stand out before any model reads it, and at what
+cost.
 
 The shape is general: untrusted reports, checks that run in code, one reader model that writes, consumers that must not
 trust what it wrote (`provider -> clean -> parse -> split -> graph -> checks -> decide -> frame -> reader -> verify -> sink`,

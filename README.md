@@ -23,7 +23,7 @@ provider -> clean -> parse -> split -> graph -> checks -> decide -> frame -> REA
 | split | code | passages with stable IDs and byte offsets |
 | graph | code | in-memory entities (question, provider, report, passage, source, site) and edges |
 | checks | code | deterministic structural and lexical findings per passage, plus low/middle/high band |
-| decide | scores only | closed questions on escalated passages via semselect; lowers weight and reports, never deletes |
+| decide | scores only | closed questions on passages via semselect (with deterministic check findings as context); lowers weight and reports, never deletes |
 | gate *(not built)* | scores only | `Score(ctx, paragraph) (score, version)`; redact above a threshold |
 | frame | code | `Frame(task, docs, opts) (Prompt, error)`: datamark, framing text, byte cap |
 | reader | writes text | one chat completion, free or schema-forced, no tools |
@@ -36,15 +36,16 @@ no model.
 
 The harness (`cmd/detonate`) switches `frame`, `verify`, and `audit` on or off (`gate` and `sink` are not implemented)
 and reports the hijack rules for each measured combination. The published result reads: with this shape, these stages,
-and this model, these are the measured counts on this corpus. A consumer imports the module for `untrusted` (`frame`)
-and `verify` (there is no gate client and no `Render`), and writes its own glue for source and sink.
+and this model, these are the measured counts on this corpus. A consumer imports the module for `intake` (`clean`,
+`parse`, `split`, `graph`, `checks`, `decide`), `untrusted` (`frame`), and `verify` (there is no gate client and no
+`Render`), and writes its own glue for source and sink.
 
 ## What the lab has not measured
 
 - One reader task (score and compare). Other output shapes are untested.
 - The reader has no tools. Nothing here applies to a model that can act.
 - One reader's output feeding a second model is untested.
-- One trial per cell, 10 cases per class, two reader models.
+- Three trials per cell on the reader matrix (`docs/results.md`) and one pass per model on the 181-passage intake cohort (`docs/intake-results.md`), 10 cases per class, two reader models (`gpt-5.4`, `gemini-3.8-flash`) and two decision models (`semselect-kev-4b`, `mercury-decide`).
 - The gate and the sink are not built.
 
 ## Hijack definition
@@ -65,16 +66,17 @@ attacks. The cases are hand-edited and frozen by hash, so the numbers are a lab 
 | Path | Purpose |
 | --- | --- |
 | `cmd/detonate` | corpus -> frame -> reader -> verify -> hijack report (milestone 1) |
-| `cmd/guard` | gate service (milestone 2, only if milestone 1 shows a gap) |
-| `intake` | clean, parse, split, in-memory graph, and deterministic passage checks/bands (exported module package) |
+| `cmd/guard` | gate service (milestone 2, not built — closed after milestone 1) |
+| `intake` | clean, parse, split, in-memory graph, deterministic passage checks, and per-passage decision-model client (exported module package) |
 | `untrusted` | segment, strip, datamark, frame (exported module package) |
 | `verify` | schema validation, claim resolution, link allowlist (exported module package) |
 | `internal/reader` | the one OpenAI-compatible chat client |
 | `internal/corpus` | case loader, hash verification, canaries |
+| `internal/intakemeasure` | corpus-to-servicesim converter, first and second intake measurements, and `docs/intake-results.md` rendering |
 | `internal/report` | results schema and `docs/results.md` rendering |
 | `corpus/` | `cases.json` and `corpus.lock.json` |
 | `eval/schemas/` | one output schema per reader task, `<task>.json` |
-| `docs/` | `explainer.md`, `hijack-definition.md`, `results.md`, `decisions.md`, `summary.md`, `evidence/` |
+| `docs/` | `explainer.md`, `hijack-definition.md`, `results.md`, `intake-results.md`, `decisions.md`, `summary.md`, `evidence/` |
 
 ## Use
 
